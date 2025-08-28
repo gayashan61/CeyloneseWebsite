@@ -3,172 +3,238 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ceylonians — Sri Lankan Restaurant</title>
-  <meta name="description" content="Ceylonians — bold Sri Lankan flavours. Dine in, takeaway, catering." />
-  <meta property="og:title" content="Ceylonians — Sri Lankan Restaurant" />
-  <meta property="og:description" content="Bold Sri Lankan flavours in the heart of Melbourne. Book a table or order takeaway." />
+  <title>Ceylonese by South Ceylon — Fine Sri Lankan Dining</title>
+  <meta name="description" content="Ceylonese by South Ceylon — refined Sri Lankan cuisine in Melbourne. Dine in, takeaway, catering, cocktails." />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600..800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta property="og:title" content="Ceylonese by South Ceylon" />
+  <meta property="og:description" content="Refined Sri Lankan cuisine, cocktails & catering. Book a table or order takeaway." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/images/og.jpg" />
-  <link rel="icon" href="/favicon.ico" />
   <style>
-    :root { --ink:#0b1220; --brand:#0066D4; --brand2:#003876; --bg:#fff; --muted:#6b7280; }
+    :root{
+      --ink:#0A0A0A;           /* charcoal */
+      --bg:#ffffff;
+      --muted:#6b7280;
+      --gold:#C9A227;          /* luxe gold */
+      --gold-2:#B48A1A;        /* deeper gold */
+      --card:#0f1115;          /* near-black for cards */
+      --accent:#E14D2A;        /* chilli accent */
+    }
     *{box-sizing:border-box}
-    html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,Arial,sans-serif;color:var(--ink);background:var(--bg)}
-    a{color:var(--brand);text-decoration:none}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;line-height:1.55}
+    h1,h2,h3{font-family:"Playfair Display",serif;letter-spacing:.2px}
+    a{color:var(--gold-2);text-decoration:none}
     a:hover{text-decoration:underline}
-    .container{max-width:1100px;margin-inline:auto;padding:24px}
-    .btn{display:inline-block;padding:12px 18px;border-radius:12px;background:var(--brand);color:#fff;font-weight:600;border:0}
-    .btn.outline{background:#fff;color:var(--brand);border:2px solid var(--brand)}
-    header{position:sticky;top:0;background:#ffffffaa;backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid #eee}
-    header .row{display:flex;align-items:center;justify-content:space-between}
-    .logo{font-weight:800;letter-spacing:.2px;color:var(--brand2)}
-    nav a{margin-left:18px;font-weight:600;color:var(--ink)}
-    .hero{background:linear-gradient(180deg,#f5f7fb,transparent), url('https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1600&auto=format&fit=crop') center/cover no-repeat;}
-    .hero .wrap{padding:90px 24px 110px;background:linear-gradient(0deg,rgba(0,0,0,.55),rgba(0,0,0,.15));}
-    .hero h1{color:#fff;font-size:44px;margin:0 0 12px;}
-    .hero p{color:#eef2ff;font-size:18px;max-width:680px;margin:0 0 22px}
-    .grid{display:grid;gap:24px}
-    @media(min-width:800px){.grid.cols-3{grid-template-columns:repeat(3,1fr)}.grid.cols-2{grid-template-columns:repeat(2,1fr)}}
-    .card{border:1px solid #eee;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 8px 22px rgba(0,0,0,.05)}
+    .container{max-width:1160px;margin-inline:auto;padding:24px}
+    .btn{display:inline-block;padding:12px 18px;border-radius:999px;border:1px solid var(--gold);background:var(--gold);color:#111;font-weight:700}
+    .btn.ghost{background:transparent;color:var(--gold);border:1.5px solid var(--gold)}
+    .btn.dark{background:#111;color:#fff;border-color:#111}
+    /* Header */
+    header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.8);backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid #eee}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .brand img{width:40px;height:40px;border-radius:8px;object-fit:cover}
+    .brand .name{font-weight:800;font-size:18px}
+    nav a{margin-left:18px;font-weight:600;color:#1a1a1a}
+    nav a:hover{color:var(--gold-2)}
+
+    /* Hero */
+    .hero{position:relative;min-height:72vh;display:grid;place-items:end;overflow:hidden}
+    .hero::before{content:"";position:absolute;inset:0;background:url('/images/hero.jpg') center/cover no-repeat;transform:scale(1.03)}
+    .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.55))}
+    .hero .wrap{position:relative;color:#fff;padding:64px 24px 96px;width:100%}
+    .hero h1{font-size:56px;line-height:1.05;margin:0 0 10px}
+    .hero p{font-size:18px;opacity:.95;max-width:720px;margin:0 0 18px}
+    .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
+
+    /* Feature collage */
+    .strip{background:#111}
+    .strip img{display:block;width:100%;max-height:360px;object-fit:cover;filter:contrast(1.05) saturate(1.05)}
+
+    /* Sections */
+    .section{padding:56px 0}
+    .lead{font-size:18px;color:var(--muted)}
+
+    .grid{display:grid;gap:22px}
+    @media(min-width:900px){.grid.cols-3{grid-template-columns:repeat(3,1fr)}.grid.cols-2{grid-template-columns:repeat(2,1fr)}}
+
+    .card{border-radius:20px;overflow:hidden;background:linear-gradient(180deg,#151922,#0b0d12);color:#eef1f5;border:1px solid #1f2430;box-shadow:0 12px 28px rgba(0,0,0,.16)}
     .card img{width:100%;height:220px;object-fit:cover}
     .card .pad{padding:18px}
-    h2.section{font-size:28px;margin:24px 0 8px}
-    .muted{color:var(--muted)}
-    .menu-item{display:flex;align-items:start;justify-content:space-between;border-bottom:1px dashed #eee;padding:12px 0}
-    .menu-item h4{margin:0;font-size:18px}
-    .price{font-weight:700}
-    .section-wrap{padding:48px 0}
-    .hours{border:1px solid #eee;border-radius:12px;padding:16px}
-    .hours li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #f0f0f0}
-    .hours li:last-child{border-bottom:0}
-    form{display:grid;gap:10px}
-    input, textarea{padding:12px 14px;border-radius:12px;border:1px solid #ddd;font:inherit}
-    footer{margin-top:40px;border-top:1px solid #eee;background:#fafafa}
-    .foot{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:22px 0}
-    .small{font-size:14px}
-    .map{width:100%;min-height:340px;border:0;border-radius:16px}
-    .tag{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef4ff;color:var(--brand2);font-weight:600}
+    .price{color:var(--gold);font-weight:800}
+
+    /* Hours & location */
+    .info{border:1px solid #eee;border-radius:18px;padding:18px}
+    .info li{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #eee}
+    .info li:last-child{border-bottom:0}
+
+    /* Forms */
+    form{display:grid;gap:12px}
+    input,textarea{padding:12px 14px;border-radius:12px;border:1px solid #ddd;font:inherit}
+
+    /* Footer */
+    footer{border-top:1px solid #eee;background:#fafafa;margin-top:40px}
+    .foot{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;padding:24px 0}
+    .small{font-size:14px;color:var(--muted)}
+
+    /* Subtle animations */
+    .lift{transition:transform .25s ease, box-shadow .25s ease}
+    .lift:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.15)}
   </style>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"Restaurant",
+    "name":"Ceylonese by South Ceylon",
+    "servesCuisine":"Sri Lankan",
+    "priceRange":"$$",
+    "telephone":"+61 3 0000 0000",
+    "address":{"@type":"PostalAddress","addressLocality":"Melbourne","addressRegion":"VIC","addressCountry":"AU"},
+    "url":"https://www.ceylonians.au"
+  }
+  </script>
 </head>
 <body>
   <header>
     <div class="container row">
-      <div class="row" style="gap:14px;align-items:center">
-        <span class="tag">New</span>
-        <div class="logo">Ceylonians</div>
+      <div class="brand">
+        <img src="/images/logo-48.png" alt="Ceylonese logo" />
+        <div class="name">Ceylonese by South Ceylon</div>
       </div>
       <nav>
+        <a href="#about">About</a>
         <a href="#menu">Menu</a>
         <a href="#hours">Hours</a>
         <a href="#contact">Contact</a>
-        <a class="btn" href="#booking">Book Table</a>
+        <a class="btn" href="#book">Book a Table</a>
       </nav>
     </div>
   </header>
 
+  <!-- HERO -->
   <section class="hero">
-    <div class="container wrap">
-      <h1>Bold Sri Lankan flavours — made fresh</h1>
-      <p>Family recipes, spice-forward curries, and street‑food favourites. Dine in, takeaway, or book a function.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <a class="btn" href="#menu">View Menu</a>
-        <a class="btn outline" href="tel:+61300000000">Call (03) 0000 0000</a>
+    <div class="wrap container">
+      <h1>Refined Sri Lankan flavours & signature cocktails</h1>
+      <p>Curries simmered low and slow, street‑food classics, and a curated drinks list. Join us for dinner, date night, or your next celebration.</p>
+      <div class="cta">
+        <a class="btn" href="#menu">Explore Menu</a>
+        <a class="btn ghost" href="tel:+61300000000">Call (03) 0000 0000</a>
       </div>
     </div>
   </section>
 
-  <main class="container">
-    <div class="section-wrap" id="menu">
-      <h2 class="section">Popular dishes</h2>
-      <p class="muted">Everything halal. Vegan & gluten‑free options available.</p>
+  <!-- COLLAGE STRIP -->
+  <div class="strip">
+    <img src="/images/collage.jpg" alt="Bar, cocktails and Sri Lankan dishes collage" />
+  </div>
+
+  <main>
+    <!-- ABOUT -->
+    <section id="about" class="container section">
+      <h2>Welcome</h2>
+      <p class="lead">A modern take on Sri Lanka’s bold spices and coastal produce, plated with elegance. Vegan, halal and gluten‑free options always available.</p>
+    </section>
+
+    <!-- SIGNATURE DISHES -->
+    <section id="menu" class="container section">
+      <h2>Signature Dishes</h2>
       <div class="grid cols-3">
-        <div class="card">
-          <img alt="Kottu roti" src="https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=1200&auto=format&fit=crop"/>
+        <article class="card lift">
+          <img src="https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=1200&auto=format&fit=crop" alt="Kottu roti"/>
           <div class="pad">
             <h3>Chicken Kottu</h3>
-            <p class="muted">Chopped roti tossed with vegetables, egg, and spices.</p>
+            <p>Chopped roti, egg and vegetables tossed on a hotplate with house spices.</p>
+            <div class="price">$22</div>
           </div>
-        </div>
-        <div class="card">
-          <img alt="Hoppers" src="https://images.unsplash.com/photo-1628294896516-67e1ffb81af2?q=80&w=1200&auto=format&fit=crop"/>
+        </article>
+        <article class="card lift">
+          <img src="https://images.unsplash.com/photo-1628294896516-67e1ffb81af2?q=80&w=1200&auto=format&fit=crop" alt="Egg hoppers"/>
           <div class="pad">
             <h3>Egg Hoppers</h3>
-            <p class="muted">Crispy bowl‑shaped pancakes with coconut sambol.</p>
+            <p>Fermented rice‑flour bowls with coconut sambol & lunu miris.</p>
+            <div class="price">$14</div>
           </div>
-        </div>
-        <div class="card">
-          <img alt="Rice and curry" src="https://images.unsplash.com/photo-1598514982100-7c4719b29a9b?q=80&w=1200&auto=format&fit=crop"/>
+        </article>
+        <article class="card lift">
+          <img src="https://images.unsplash.com/photo-1598514982100-7c4719b29a9b?q=80&w=1200&auto=format&fit=crop" alt="Rice and curry"/>
           <div class="pad">
             <h3>Rice & Curry</h3>
-            <p class="muted">Choice of chicken, beef, or jackfruit curry with three sides.</p>
+            <p>Choose chicken, beef or jackfruit with three seasonal sides.</p>
+            <div class="price">$24</div>
+          </div>
+        </article>
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+        <a class="btn dark" href="#book">Reserve Now</a>
+        <a class="btn ghost" href="#fullmenu">Download Full Menu (PDF)</a>
+      </div>
+    </section>
+
+    <!-- HOURS & MAP -->
+    <section id="hours" class="container section">
+      <div class="grid cols-2">
+        <div>
+          <h2>Find Us</h2>
+          <p>123 Spice Lane, Melbourne VIC</p>
+          <p class="small">Free parking on side streets · 5‑min walk from Station</p>
+          <iframe class="map" style="width:100%;min-height:340px;border:0;border-radius:16px" loading="lazy" allowfullscreen 
+            referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3151.835434509374!2d144.9559233159046!3d-37.81720937975147!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzfCsDQ5JzAyLjAiUyAxNDTCsDU3JzI3LjMiRQ!5e0!3m2!1sen!2sau!4v1680000000000"></iframe>
+        </div>
+        <div>
+          <h2>Hours</h2>
+          <ul class="info">
+            <li><span>Mon</span><span>Closed</span></li>
+            <li><span>Tue–Thu</span><span>11:30–21:00</span></li>
+            <li><span>Fri–Sat</span><span>11:30–22:00</span></li>
+            <li><span>Sun</span><span>11:30–20:30</span></li>
+          </ul>
+          <p class="small">Hours may vary on public holidays.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ENQUIRIES / BOOKING -->
+    <section id="contact" class="container section">
+      <div class="grid cols-2">
+        <div>
+          <h2 id="book">Reservations & Enquiries</h2>
+          <p>Call <a href="tel:+61300000000">(03) 0000 0000</a> or send a message below. Same‑day bookings are best by phone.</p>
+          <form name="contact" method="POST" data-netlify="true">
+            <input type="hidden" name="form-name" value="contact" />
+            <input required type="text" name="name" placeholder="Your name" />
+            <input required type="email" name="email" placeholder="Email" />
+            <input type="tel" name="phone" placeholder="Phone (optional)" />
+            <textarea name="message" rows="5" placeholder="Message (date, time, # people)"></textarea>
+            <button class="btn" type="submit">Send</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="pad">
+            <h3>Private Dining & Catering</h3>
+            <p class="small">From intimate dinners to corporate events for 150. Cocktail packages available.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+              <a class="btn" href="#">Enquire</a>
+              <a class="btn ghost" href="#">View Packages</a>
+            </div>
           </div>
         </div>
       </div>
-
-      <h2 class="section" style="margin-top:34px">Sample menu</h2>
-      <div>
-        <div class="menu-item"><h4>Chicken Kottu</h4><span class="price">$18</span></div>
-        <div class="menu-item"><h4>Egg Hoppers (2)</h4><span class="price">$9</span></div>
-        <div class="menu-item"><h4>Lamprais</h4><span class="price">$22</span></div>
-        <div class="menu-item"><h4>Jackfruit Curry (vegan)</h4><span class="price">$17</span></div>
-        <div class="menu-item"><h4>String Hoppers & Pol Sambol</h4><span class="price">$15</span></div>
-      </div>
-    </div>
-
-    <div class="section-wrap grid cols-2" id="hours">
-      <div>
-        <h2 class="section">Find us</h2>
-        <p>123 Spice Lane, Melbourne VIC</p>
-        <p class="muted">Free parking available on side streets. 5‑min walk from Station.</p>
-        <iframe class="map" loading="lazy" allowfullscreen 
-          referrerpolicy="no-referrer-when-downgrade"
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3151.835434509374!2d144.9559233159046!3d-37.81720937975147!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzfCsDQ5JzAyLjAiUyAxNDTCsDU3JzI3LjMiRQ!5e0!3m2!1sen!2sau!4v1680000000000"></iframe>
-      </div>
-      <div>
-        <h2 class="section">Hours</h2>
-        <ul class="hours">
-          <li><span>Mon</span><span>Closed</span></li>
-          <li><span>Tue–Thu</span><span>11:30–21:00</span></li>
-          <li><span>Fri–Sat</span><span>11:30–22:00</span></li>
-          <li><span>Sun</span><span>11:30–20:30</span></li>
-        </ul>
-        <p class="muted small" style="margin-top:8px">Hours may change on public holidays.</p>
-      </div>
-    </div>
-
-    <div class="section-wrap grid cols-2" id="contact">
-      <div>
-        <h2 class="section" id="booking">Book or enquire</h2>
-        <p>Call <a href="tel:+61300000000">(03) 0000 0000</a> or send a message:</p>
-        <form name="contact" method="POST" data-netlify="true">
-          <input type="hidden" name="form-name" value="contact" />
-          <input required type="text" name="name" placeholder="Your name" />
-          <input required type="email" name="email" placeholder="Email" />
-          <textarea name="message" rows="5" placeholder="Message (date, time, # people)"></textarea>
-          <button class="btn" type="submit">Send</button>
-        </form>
-        <p class="muted small">We’ll reply by email. For same‑day bookings, please call.</p>
-      </div>
-      <div class="card">
-        <div class="pad">
-          <h3>Takeaway & Delivery</h3>
-          <p class="muted">Order on the phone or partner apps. Catering available for 10–150 people.</p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <a class="btn" href="#">Order Now</a>
-            <a class="btn outline" href="#">Catering</a>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
   </main>
 
   <footer>
     <div class="container foot">
       <div>
-        <strong>Ceylonians</strong>
-        <div class="small muted">ABN 00 000 000 000</div>
+        <strong>Ceylonese by South Ceylon</strong>
+        <div class="small">ABN 00 000 000 000</div>
       </div>
-      <div class="small muted">© <span id="y"></span> Ceylonians. All rights reserved.</div>
+      <div class="small">© <span id="y"></span> Ceylonese. All rights reserved.</div>
     </div>
   </footer>
 
