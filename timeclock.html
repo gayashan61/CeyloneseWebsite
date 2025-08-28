@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ceylonese TimeClock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#0f1115;--panel:#151a22;--ink:#e7ebf2;--muted:#94a3b8;--gold:#c9a227;--red:#ef4444;--green:#22c55e}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:1000px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+    a{color:var(--gold)}
+    .card{background:var(--panel);border:1px solid #1f2430;border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
+    .grid{display:grid;gap:18px}
+    @media(min-width:900px){.grid.cols-2{grid-template-columns:1.2fr .8fr}}
+    input,button,select{font:inherit}
+    input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #2a3242;background:#0c0f14;color:var(--ink)}
+    button{padding:10px 16px;border-radius:12px;border:1px solid #2a3242;background:#0c0f14;color:#fff;cursor:pointer;font-weight:700}
+    button.primary{background:var(--gold);border-color:var(--gold);color:#111}
+    button.ghost{background:transparent}
+    button.danger{background:transparent;border-color:#3a2020;color:#fecaca}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px solid #222b3a}
+    th{text-align:left;color:#cbd5e1;font-weight:700}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#0c0f14;border:1px solid #2a3242}
+    .ok{color:var(--green)}.bad{color:#fca5a5}
+    .right{margin-left:auto}
+    .center{text-align:center}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="row">
+        <strong style="font-size:18px">Ceylonese — TimeClock</strong>
+        <span class="pill muted">Beta</span>
+      </div>
+      <div class="row">
+        <span id="who" class="muted"></span>
+        <button id="btnSignOut" class="ghost hidden">Sign out</button>
+      </div>
+    </header>
+
+    <!-- Auth Card -->
+    <section id="authCard" class="card">
+      <h2>Sign in</h2>
+      <p class="muted">Use your staff email and password. First‑time users can register below.</p>
+      <div class="grid cols-2">
+        <div>
+          <label>Email</label>
+          <input id="email" type="email" placeholder="you@ceylonians.au" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btnSignIn" class="primary">Sign in</button>
+        <button id="btnRegister" class="ghost">Register</button>
+      </div>
+      <p id="authMsg" class="muted"></p>
+    </section>
+
+    <!-- App -->
+    <section id="app" class="hidden">
+      <div class="grid cols-2">
+        <!-- Staff panel -->
+        <div class="card">
+          <div class="row">
+            <h2 style="margin:0">My Shift</h2>
+            <span id="statusPill" class="pill right">Status: <span id="statusTxt">—</span></span>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button id="btnClockIn" class="primary">Clock In</button>
+            <button id="btnClockOut" class="danger">Clock Out</button>
+            <span class="muted" id="now"></span>
+          </div>
+          <h3 style="margin-top:16px">Today</h3>
+          <table>
+            <thead><tr><th>Time</th><th>Action</th></tr></thead>
+            <tbody id="todayBody"></tbody>
+          </table>
+        </div>
+        
+        <!-- Admin panel -->
+        <div id="adminCard" class="card hidden">
+          <div class="row">
+            <h2 style="margin:0">Admin — Attendance</h2>
+            <button id="btnExport" class="ghost right">Export CSV</button>
+          </div>
+          <table>
+            <thead><tr><th>When</th><th>User</th><th>Action</th></tr></thead>
+            <tbody id="adminBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ======= CONFIG (replace placeholders) =======
+    const SUPABASE_URL = "YOUR_SUPABASE_URL";            // e.g. https://abccompany.supabase.co
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";  // from Supabase → Settings → API
+
+    const supabase = supabase_js.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Helpers
+    const $ = (id) => document.getElementById(id);
+    const fmt = (d)=> new Date(d).toLocaleString();
+    const todayISO = () => new Date(new Date().toDateString()).toISOString();
+
+    const authCard = $("authCard");
+    const app = $("app");
+    const adminCard = $("adminCard");
+
+    function setAuthUI(user, profile){
+      if(user){
+        authCard.classList.add("hidden");
+        app.classList.remove("hidden");
+        $("who").textContent = profile?.full_name ? `${profile.full_name} (${profile.role||'staff'})` : user.email;
+        $("btnSignOut").classList.remove("hidden");
+        adminCard.classList.toggle("hidden", !(profile && profile.is_admin));
+        loadToday();
+        if(profile && profile.is_admin){ loadAdmin(); }
+      }else{
+        authCard.classList.remove("hidden");
+        app.classList.add("hidden");
+        $("btnSignOut").classList.add("hidden");
+        $("who").textContent = "";
+      }
+    }
+
+    async function getProfile(){
+      const { data: { user } } = await supabase.auth.getUser();
+      if(!user) return { user:null, profile:null };
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, is_admin')
+        .eq('id', user.id)
+        .single();
+      return { user, profile };
+    }
+
+    // Auth events
+    $("btnSignIn").onclick = async () => {
+      $("authMsg").textContent = "Signing in...";
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: $("email").value.trim(),
+        password: $("password").value
+      });
+      if(error){ $("authMsg").textContent = error.message; return; }
+      const ctx = await getProfile();
+      setAuthUI(ctx.user, ctx.profile);
+      $("authMsg").textContent = "";
+    };
+
+    $("btnRegister").onclick = async () => {
+      $("authMsg").textContent = "Creating account...";
+      const { data, error } = await supabase.auth.signUp({
+        email: $("email").value.trim(),
+        password: $("password").value
+      });
+      if(error){ $("authMsg").textContent = error.message; return; }
+      $("authMsg").textContent = "Account created. Check your email to confirm, then sign in.";
+      // On server: create a row in profiles via trigger (see SQL below)
+    };
+
+    $("btnSignOut").onclick = async () => { await supabase.auth.signOut(); setAuthUI(null,null); };
+
+    // Clock In/Out
+    $("btnClockIn").onclick = async ()=> addPunch('in');
+    $("btnClockOut").onclick = async ()=> addPunch('out');
+
+    async function addPunch(action){
+      const { data: { user } } = await supabase.auth.getUser();
+      if(!user){ alert('Please sign in'); return; }
+      const { error } = await supabase.from('punches').insert({ user_id: user.id, action });
+      if(error){ alert(error.message); return; }
+      await loadToday();
+    }
+
+    async function loadToday(){
+      $("now").textContent = new Date().toLocaleString();
+      const since = todayISO();
+      const { data, error } = await supabase
+        .from('punches')
+        .select('created_at, action')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+      const body = $("todayBody");
+      body.innerHTML = (data||[]).map(r=>`<tr><td>${fmt(r.created_at)}</td><td>${r.action.toUpperCase()}</td></tr>`).join('');
+      const last = data && data[0] ? data[0].action : null;
+      $("statusTxt").textContent = last ? (last==='in' ? 'Clocked in' : 'Clocked out') : '—';
+    }
+
+    async function loadAdmin(){
+      const since = todayISO();
+      const { data } = await supabase
+        .from('punches_view') // view joining profiles for names (see SQL)
+        .select('*')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+      const body = $("adminBody");
+      body.innerHTML = (data||[]).map(r=>`<tr><td>${fmt(r.created_at)}</td><td>${r.full_name||r.email||r.user_id}</td><td>${r.action.toUpperCase()}</td></tr>`).join('');
+      $("btnExport").onclick = ()=> exportCSV(data||[]);
+    }
+
+    function exportCSV(rows){
+      const header = ['When','User','Action'];
+      const csv = [header.join(',')].concat(rows.map(r=>[
+        new Date(r.created_at).toISOString(),
+        '"'+(r.full_name||r.email||r.user_id)+'"',
+        r.action
+      ].join(','))).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'attendance-today.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Session bootstrap
+    (async()=>{
+      const ctx = await getProfile();
+      setAuthUI(ctx.user, ctx.profile);
+      // listen for login state changes
+      supabase.auth.onAuthStateChange(async (_event, session)=>{
+        const ctx = await getProfile();
+        setAuthUI(ctx.user, ctx.profile);
+      });
+    })();
+  </script>
+
+  <!--
+  ===================== SUPABASE SETUP (run in SQL editor) =====================
+
+  -- 1) profiles table mirrors auth.users
+  create table if not exists public.profiles (
+    id uuid primary key references auth.users on delete cascade,
+    full_name text,
+    role text default 'staff',
+    is_admin boolean default false,
+    created_at timestamptz default now()
+  );
+
+  -- 2) trigger to create profile row after signup
+  create or replace function public.handle_new_user()
+  returns trigger as $$
+  begin
+    insert into public.profiles (id, full_name)
+    values (new.id, new.raw_user_meta_data->>'full_name');
+    return new;
+  end;
+  $$ language plpgsql security definer;
+
+  drop trigger if exists on_auth_user_created on auth.users;
+  create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+  -- 3) punches table
+  create table if not exists public.punches (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users(id) on delete cascade,
+    action text not null check (action in ('in','out')),
+    created_at timestamptz default now()
+  );
+
+  -- 4) view for admin listing with names
+  create or replace view public.punches_view as
+    select p.created_at, p.action, p.user_id, pr.full_name, au.email
+    from public.punches p
+    left join public.profiles pr on pr.id = p.user_id
+    left join auth.users au on au.id = p.user_id;
+
+  -- 5) RLS policies
+  alter table public.profiles enable row level security;
+  alter table public.punches  enable row level security;
+  alter table public.punches_view set (security_invoker = on); -- view uses caller rights
+
+  -- A) profiles: users can read their own row
+  create policy if not exists "read own profile" on public.profiles
+    for select using (id = auth.uid());
+
+  -- B) punches: user can insert their own punches
+  create policy if not exists "insert own" on public.punches
+    for insert with check (user_id = auth.uid());
+
+  -- C) punches: user can see their own punches
+  create policy if not exists "select own" on public.punches
+    for select using (user_id = auth.uid());
+
+  -- D) admin override (profiles.is_admin = true)
+  create policy if not exists "admin can select all punches" on public.punches
+    for select using (exists(select 1 from public.profiles pr where pr.id = auth.uid() and pr.is_admin));
+
+  -- 6) Make an admin (replace UUID of the user)
+  -- update public.profiles set is_admin = true where id = 'YOUR-ADMIN-USER-ID';
+
+  ==========================================================================
+  -->
+</body>
+</html>
