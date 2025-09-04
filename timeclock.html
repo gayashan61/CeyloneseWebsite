@@ -22,7 +22,7 @@
     .wrap{max-width:1000px;margin:0 auto;padding:clamp(16px,3vw,24px)}
     header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;background:#0c0f14;border:1px solid var(--border);color:var(--muted);max-width:100%;}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;background:#0c0f14;border:1px solid var(--border);color:var(--muted);max-width:100%}
     .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
     .grid{display:grid;gap:18px}
     @media(min-width:900px){.grid.cols-2{grid-template-columns:1.2fr .8fr}}
@@ -40,14 +40,11 @@
     .center{text-align:center}
     .hidden{display:none}
 
-    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:400px;overflow-y:auto}
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
-    /* LED indicator */
-.led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
-.led.green{background:var(--green)}
-.led.red{background:#ef4444}
+    .status.ok{color:var(--green)} .status.bad{color:#fca5a5}
 
     @media(max-width:600px){
       header strong{font-size:16px}
@@ -96,22 +93,27 @@
         <!-- STAFF PANEL -->
         <div class="card">
           <div class="row">
-            <h2 style="margin:0">My Shift</h2>
-            <span id="statusPill" class="pill right">
-  <span id="statusLed" class="led" aria-hidden="true"></span>
-  <span id="statusTxt">Not in shift</span>
-</span>
+            <h2 style="margin:0">My Shifts</h2>
+            <span id="statusPill" class="pill right">Status: <span id="statusTxt">—</span></span>
           </div>
           <div class="row" style="margin-top:10px">
             <button id="btnClockIn" class="primary">Clock In</button>
             <button id="btnClockOut" class="danger">Clock Out</button>
             <span class="muted right" id="now" style="white-space:nowrap"></span>
           </div>
-          <h3 style="margin-top:16px">Today</h3>
+          <h3 style="margin-top:16px">Shift Records</h3>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Time</th><th>Action</th></tr></thead>
-              <tbody id="todayBody"><tr><td colspan="2" class="muted">No punches yet.</td></tr></tbody>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Clock In</th>
+                  <th>Clock Out</th>
+                  <th>Hours</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="shiftBody"><tr><td colspan="5" class="muted">No shifts yet.</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -133,192 +135,166 @@
     </section>
   </div>
 
-   <script>
-  // ================== CONFIG (REPLACE THESE) ==================
-  const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";            // e.g. https://abccompany.supabase.co
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";  // from Supabase → Settings → API
-  // ===========================================================
+  <script>
+    const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
 
-  if (!SUPABASE_URL.startsWith("http")) {
-    alert("Please set SUPABASE_URL and SUPABASE_ANON_KEY at the top of timeclock.html");
-  }
+    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const $ = (id) => document.getElementById(id);
+    const fmtDate = (d) => new Date(d).toLocaleDateString();
+    const fmtTime = (d) => new Date(d).toLocaleTimeString();
 
-  // Helpers
-  const $ = (id) => document.getElementById(id);
-  const fmt = (d) => new Date(d).toLocaleString();
-  const todayISO = () => new Date(new Date().toDateString()).toISOString();
+    const authCard = $("authCard");
+    const app = $("app");
+    const adminCard = $("adminCard");
+    const btnClockIn = $("btnClockIn");
+    const btnClockOut = $("btnClockOut");
 
-  const authCard = $("authCard");
-  const app = $("app");
-  const adminCard = $("adminCard");
-  let lastAction = null; // 'in' | 'out' | null
-
-  function setBusy(msg) { $("authMsg").textContent = msg || ""; }
-
-  function setAuthUI(user, profile){
-    if (user) {
-      authCard.classList.add("hidden");
-      app.classList.remove("hidden");
-      $("who").textContent = profile?.full_name
-        ? `${profile.full_name} (${profile.is_admin ? "admin" : (profile.role||"staff")})`
-        : user.email;
-      $("btnSignOut").classList.remove("hidden");
-      adminCard.classList.toggle("hidden", !(profile && profile.is_admin));
-      awaitRefresh();
-      if (profile && profile.is_admin) loadAdmin();
-    } else {
-      authCard.classList.remove("hidden");
-      app.classList.add("hidden");
-      $("btnSignOut").classList.add("hidden");
-      $("who").textContent = "";
-      // Reset and focus login
-      $("email").value = "";
-      $("password").value = "";
-      $("email").focus();
+    function setBusy(msg) { $("authMsg").textContent = msg || ""; }
+    function setAuthUI(user, profile){
+      if (user) {
+        authCard.classList.add("hidden");
+        app.classList.remove("hidden");
+        $("who").textContent = profile?.full_name
+          ? `${profile.full_name} (${profile.is_admin ? "admin" : (profile.role||"staff")})`
+          : user.email;
+        $("btnSignOut").classList.remove("hidden");
+        adminCard.classList.toggle("hidden", !(profile && profile.is_admin));
+        loadShifts();
+        if (profile && profile.is_admin) loadAdmin();
+      } else {
+        authCard.classList.remove("hidden");
+        app.classList.add("hidden");
+        $("btnSignOut").classList.add("hidden");
+        $("who").textContent = "";
+      }
     }
-  }
 
-  async function getProfile(){
-    const { data: { user } } = await supa.auth.getUser();
-    if (!user) return { user: null, profile: null };
-    const { data: profile } = await supa
-      .from("profiles")
-      .select("id, full_name, role, is_admin")
-      .eq("id", user.id)
-      .single();
-    return { user, profile };
-  }
-
-  // Auth handlers (sign-in only)
-  $("btnSignIn").onclick = async () => {
-    setBusy("Signing in…");
-    const { error } = await supa.auth.signInWithPassword({
-      email: $("email").value.trim(),
-      password: $("password").value
-    });
-    if (error) { setBusy(error.message); return; }
-    const ctx = await getProfile();
-    setAuthUI(ctx.user, ctx.profile);
-    setBusy("");
-  };
-
-  $("btnSignOut").onclick = async () => {
-    await supa.auth.signOut();
-    setAuthUI(null, null); // go back to login screen
-  };
-
-  // Punching
-  $("btnClockIn").onclick  = async () => addPunch("in");
-  $("btnClockOut").onclick = async () => addPunch("out");
-
-  function setButtons(){
-    const inBtn = $("btnClockIn");
-    const outBtn = $("btnClockOut");
-    if (lastAction === "in"){
-      inBtn.disabled = true;  outBtn.disabled = false;
-    } else {
-      inBtn.disabled = false; outBtn.disabled = true;
+    async function getProfile(){
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) return { user: null, profile: null };
+      const { data: profile } = await supa
+        .from("profiles")
+        .select("id, full_name, role, is_admin")
+        .eq("id", user.id)
+        .single();
+      return { user, profile };
     }
-  }
 
-  async function addPunch(action){
-    const { data: { user } } = await supa.auth.getUser();
-    if (!user) { alert("Please sign in"); return; }
-    // Client-side sequence guard
-    if (action === "in" && lastAction === "in") return alert("You are already clocked in.");
-    if (action === "out" && lastAction !== "in") return alert("You are not currently clocked in.");
-
-    const { error } = await supa.from("punches").insert({ user_id: user.id, action });
-    if (error) { alert(error.message); return; }
-    await awaitRefresh();
-  }
-
-  // Data loads
-  async function loadToday(){
-    $("now").textContent = new Date().toLocaleString();
-    const since = todayISO();
-    const { data } = await supa
-      .from("punches")
-      .select("created_at, action")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false });
-    const body = $("todayBody");
-    body.innerHTML = (data && data.length)
-      ? data.map(r => `<tr><td>${fmt(r.created_at)}</td><td>${r.action.toUpperCase()}</td></tr>`).join("")
-      : `<tr><td colspan="2" class="muted">No punches yet.</td></tr>`;
-  }
-
-  async function refreshStatus(){
-    const led = $("statusLed");
-    const txt = $("statusTxt");
-    const { data } = await supa
-      .from("punches")
-      .select("action, created_at")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    lastAction = (data && data.length) ? data[0].action : null;
-
-    if (lastAction === "in"){
-      led.classList.add("green"); led.classList.remove("red");
-      txt.textContent = "Clocked in";
-      txt.className = "status ok";
-    } else {
-      led.classList.add("red"); led.classList.remove("green");
-      txt.textContent = "Not in shift";
-      txt.className = "status bad";
-    }
-    setButtons();
-  }
-
-  async function awaitRefresh(){
-    await Promise.all([loadToday(), refreshStatus()]);
-  }
-
-  async function loadAdmin(){
-    const since = todayISO();
-    const { data } = await supa
-      .from("punches_view") // view joins names/emails
-      .select("*")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false });
-    const body = $("adminBody");
-    body.innerHTML = (data && data.length)
-      ? data.map(r => `<tr><td>${fmt(r.created_at)}</td><td>${r.full_name || r.email || r.user_id}</td><td>${r.action.toUpperCase()}</td></tr>`).join("")
-      : `<tr><td colspan="3" class="muted">No records yet.</td></tr>`;
-    $("btnExport").onclick = () => exportCSV(data || []);
-  }
-
-  function exportCSV(rows){
-    const header = ["When","User","Action"];
-    const csv = [header.join(",")].concat(
-      rows.map(r => [
-        new Date(r.created_at).toISOString(),
-        `"${(r.full_name || r.email || r.user_id).replace(/"/g,'""')}"`,
-        r.action
-      ].join(","))
-    ).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "attendance-today.csv"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // Session bootstrap
-  (async () => {
-    const ctx = await getProfile();
-    setAuthUI(ctx.user, ctx.profile);
-    if (ctx.user) await awaitRefresh();
-    supa.auth.onAuthStateChange(async () => {
+    $("btnSignIn").onclick = async () => {
+      setBusy("Signing in…");
+      const { error } = await supa.auth.signInWithPassword({
+        email: $("email").value.trim(),
+        password: $("password").value
+      });
+      if (error) { setBusy(error.message); return; }
       const ctx = await getProfile();
       setAuthUI(ctx.user, ctx.profile);
-      if (ctx.user) await awaitRefresh();
-    });
-  })();
-</script>
+      setBusy("");
+    };
 
+    $("btnSignOut").onclick = async () => {
+      await supa.auth.signOut();
+      setAuthUI(null, null);
+      authCard.classList.remove("hidden");
+      app.classList.add("hidden");
+    };
+
+    btnClockIn.onclick  = async () => addPunch("in");
+    btnClockOut.onclick = async () => addPunch("out");
+
+    async function addPunch(action){
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) { alert("Please sign in"); return; }
+      const { error } = await supa.from("punches").insert({ user_id: user.id, action });
+      if (error) { alert(error.message); return; }
+      await loadShifts();
+    }
+
+    function calculateHours(inTime, outTime){
+      if (!inTime || !outTime) return "-";
+      const diffMs = new Date(outTime) - new Date(inTime);
+      if (diffMs <= 0) return "-";
+      const hrs = diffMs/1000/60/60;
+      return hrs.toFixed(2);
+    }
+
+    async function loadShifts(){
+      $("now").textContent = new Date().toLocaleString();
+      const { data } = await supa
+        .from("punches")
+        .select("created_at, action")
+        .order("created_at", { ascending: true });
+
+      let shifts = [];
+      let currentIn = null;
+      for (let p of data){
+        if (p.action === "in"){
+          currentIn = p.created_at;
+        } else if (p.action === "out" && currentIn){
+          shifts.push({
+            date: fmtDate(currentIn),
+            in: fmtTime(currentIn),
+            out: fmtTime(p.created_at),
+            hours: calculateHours(currentIn, p.created_at),
+            status: "Pending"
+          });
+          currentIn = null;
+        }
+      }
+      if (currentIn){
+        shifts.push({
+          date: fmtDate(currentIn),
+          in: fmtTime(currentIn),
+          out: "-",
+          hours: "-",
+          status: "Pending"
+        });
+      }
+
+      const body = $("shiftBody");
+      body.innerHTML = (shifts && shifts.length)
+        ? shifts.map(s => `<tr><td>${s.date}</td><td>${s.in}</td><td>${s.out}</td><td>${s.hours}</td><td>${s.status}</td></tr>`).join("")
+        : `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
+    }
+
+    async function loadAdmin(){
+      const { data } = await supa
+        .from("punches_view")
+        .select("*")
+        .order("created_at", { ascending: false });
+      const body = $("adminBody");
+      body.innerHTML = (data && data.length)
+        ? data.map(r => `<tr><td>${new Date(r.created_at).toLocaleString()}</td><td>${r.full_name || r.email || r.user_id}</td><td>${r.action.toUpperCase()}</td></tr>`).join("")
+        : `<tr><td colspan="3" class="muted">No records yet.</td></tr>`;
+      $("btnExport").onclick = () => exportCSV(data || []);
+    }
+
+    function exportCSV(rows){
+      const header = ["When","User","Action"];
+      const csv = [header.join(",")].concat(
+        rows.map(r => [
+          new Date(r.created_at).toISOString(),
+          `"${(r.full_name || r.email || r.user_id).replace(/"/g,'""')}"`,
+          r.action
+        ].join(","))
+      ).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "attendance-today.csv"; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    (async () => {
+      const ctx = await getProfile();
+      setAuthUI(ctx.user, ctx.profile);
+      supa.auth.onAuthStateChange(async () => {
+        const ctx = await getProfile();
+        setAuthUI(ctx.user, ctx.profile);
+      });
+    })();
+  </script>
 </body>
 </html>
