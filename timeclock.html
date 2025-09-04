@@ -44,7 +44,10 @@
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
-    .status.ok{color:var(--green)} .status.bad{color:#fca5a5}
+    /* LED indicator */
+.led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
+.led.green{background:var(--green)}
+.led.red{background:#ef4444}
 
     @media(max-width:600px){
       header strong{font-size:16px}
@@ -94,7 +97,10 @@
         <div class="card">
           <div class="row">
             <h2 style="margin:0">My Shifts</h2>
-            <span id="statusPill" class="pill right">Status: <span id="statusTxt">—</span></span>
+           <span id="statusPill" class="pill right">
+  <span id="statusLed" class="led" aria-hidden="true"></span>
+  <span id="statusTxt">Not in shift</span>
+</span>
           </div>
           <div class="row" style="margin-top:10px">
             <button id="btnClockIn" class="primary">Clock In</button>
