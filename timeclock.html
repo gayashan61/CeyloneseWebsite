@@ -25,7 +25,6 @@
     .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;background:#0c0f14;border:1px solid var(--border);color:var(--muted);max-width:100%;}
     .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
     .grid{display:grid;gap:18px}
-    /* Two columns on large screens only */
     @media(min-width:900px){.grid.cols-2{grid-template-columns:1.2fr .8fr}}
 
     input,button,select{font:inherit}
@@ -35,19 +34,18 @@
     button.primary{background:var(--gold);border-color:var(--gold);color:#111}
     button.ghost{background:transparent}
     button.danger{background:transparent;border-color:#3a2020;color:#fecaca}
+    button:disabled{opacity:0.5;cursor:not-allowed}
     .muted{color:var(--muted)}
     .right{margin-left:auto}
     .center{text-align:center}
     .hidden{display:none}
 
-    /* Tables */
     .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
     .status.ok{color:var(--green)} .status.bad{color:#fca5a5}
 
-    /* Mobile tweaks */
     @media(max-width:600px){
       header strong{font-size:16px}
       .row > *{flex:1 1 100%}
@@ -130,18 +128,11 @@
   </div>
 
   <script>
-    // ================== CONFIG (REPLACE THESE) ==================
-    const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";            // e.g. https://abccompany.supabase.co
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";  // from Supabase → Settings → API
-    // ===========================================================
-
-    if (!SUPABASE_URL.startsWith("http")) {
-      alert("Please set SUPABASE_URL and SUPABASE_ANON_KEY at the top of timeclock.html");
-    }
+    const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
 
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Helpers
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
     const todayISO = () => new Date(new Date().toDateString()).toISOString();
@@ -149,6 +140,8 @@
     const authCard = $("authCard");
     const app = $("app");
     const adminCard = $("adminCard");
+    const btnClockIn = $("btnClockIn");
+    const btnClockOut = $("btnClockOut");
 
     function setBusy(msg) { $("authMsg").textContent = msg || ""; }
     function setAuthUI(user, profile){
@@ -181,7 +174,6 @@
       return { user, profile };
     }
 
-    // Auth handlers (sign-in only)
     $("btnSignIn").onclick = async () => {
       setBusy("Signing in…");
       const { error } = await supa.auth.signInWithPassword({
@@ -197,11 +189,13 @@
     $("btnSignOut").onclick = async () => {
       await supa.auth.signOut();
       setAuthUI(null, null);
+      // Navigate to login screen (show authCard again)
+      authCard.classList.remove("hidden");
+      app.classList.add("hidden");
     };
 
-    // Punching
-    $("btnClockIn").onclick  = async () => addPunch("in");
-    $("btnClockOut").onclick = async () => addPunch("out");
+    btnClockIn.onclick  = async () => addPunch("in");
+    btnClockOut.onclick = async () => addPunch("out");
 
     async function addPunch(action){
       const { data: { user } } = await supa.auth.getUser();
@@ -209,32 +203,46 @@
       const { error } = await supa.from("punches").insert({ user_id: user.id, action });
       if (error) { alert(error.message); return; }
       await loadToday();
-      const st = $("statusTxt");
-      st.textContent = action === "in" ? "Clocked in" : "Clocked out";
-      st.className = "status " + (action === "in" ? "ok" : "bad");
     }
 
-    // Data loads
     async function loadToday(){
       $("now").textContent = new Date().toLocaleString();
       const since = todayISO();
-      const { data, error } = await supa
+      const { data } = await supa
         .from("punches")
         .select("created_at, action")
         .gte("created_at", since)
         .order("created_at", { ascending: false });
+
       const body = $("todayBody");
       body.innerHTML = (data && data.length)
         ? data.map(r => `<tr><td>${fmt(r.created_at)}</td><td>${r.action.toUpperCase()}</td></tr>`).join("")
         : `<tr><td colspan="2" class="muted">No punches yet.</td></tr>`;
+
       const last = data && data[0] ? data[0].action : null;
-      $("statusTxt").textContent = last ? (last === "in" ? "Clocked in" : "Clocked out") : "—";
+      const st = $("statusTxt");
+      if (last === "in") {
+        st.textContent = "Clocked in";
+        st.className = "status ok";
+        btnClockIn.disabled = true;
+        btnClockOut.disabled = false;
+      } else if (last === "out") {
+        st.textContent = "Clocked out";
+        st.className = "status bad";
+        btnClockIn.disabled = false;
+        btnClockOut.disabled = true;
+      } else {
+        st.textContent = "—";
+        st.className = "muted";
+        btnClockIn.disabled = false;
+        btnClockOut.disabled = true;
+      }
     }
 
     async function loadAdmin(){
       const since = todayISO();
       const { data } = await supa
-        .from("punches_view") // view joins names/emails
+        .from("punches_view")
         .select("*")
         .gte("created_at", since)
         .order("created_at", { ascending: false });
@@ -261,7 +269,6 @@
       URL.revokeObjectURL(url);
     }
 
-    // Session bootstrap
     (async () => {
       const ctx = await getProfile();
       setAuthUI(ctx.user, ctx.profile);
@@ -271,7 +278,5 @@
       });
     })();
   </script>
-
-  <!-- DB schema comment kept for reference (unchanged) -->
 </body>
 </html>
