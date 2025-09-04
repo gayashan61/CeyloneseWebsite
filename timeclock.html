@@ -44,10 +44,9 @@
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
-    /* LED indicator */
-.led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
-.led.green{background:var(--green)}
-.led.red{background:#ef4444}
+    .led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
+    .led.green{background:var(--green)}
+    .led.red{background:#ef4444}
 
     @media(max-width:600px){
       header strong{font-size:16px}
@@ -97,10 +96,10 @@
         <div class="card">
           <div class="row">
             <h2 style="margin:0">My Shifts</h2>
-           <span id="statusPill" class="pill right">
-  <span id="statusLed" class="led" aria-hidden="true"></span>
-  <span id="statusTxt">Not in shift</span>
-</span>
+            <span id="statusPill" class="pill right">
+              <span id="statusLed" class="led" aria-hidden="true"></span>
+              <span id="statusTxt">Not in shift</span>
+            </span>
           </div>
           <div class="row" style="margin-top:10px">
             <button id="btnClockIn" class="primary">Clock In</button>
@@ -132,8 +131,8 @@
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>When</th><th>User</th><th>Action</th></tr></thead>
-              <tbody id="adminBody"><tr><td colspan="3" class="muted">No records yet.</td></tr></tbody>
+              <thead><tr><th>When</th><th>User</th><th>Action</th><th>Note</th></tr></thead>
+              <tbody id="adminBody"><tr><td colspan="4" class="muted">No records yet.</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -208,12 +207,19 @@
     };
 
     btnClockIn.onclick  = async () => addPunch("in");
-    btnClockOut.onclick = async () => addPunch("out");
+    btnClockOut.onclick = async () => {
+      const raw = prompt("Add a note for this shift (optional):", "");
+      const note = (raw ?? "").trim();
+      await addPunch("out", note || null);
+    };
 
-    async function addPunch(action){
+    async function addPunch(action, note){
       const { data: { user } } = await supa.auth.getUser();
       if (!user) { alert("Please sign in"); return; }
-      const { error } = await supa.from("punches").insert({ user_id: user.id, action });
+      const payload = { user_id: user.id, action };
+      if (action === "out" && note) payload.note = note;
+
+      const { error } = await supa.from("punches").insert(payload);
       if (error) { alert(error.message); return; }
       await loadShifts();
     }
@@ -259,6 +265,19 @@
         });
       }
 
+      // live status pill (unchanged logic, minor enhancement)
+      const statusTxt = $("statusTxt");
+      const statusLed = $("statusLed");
+      if (currentIn){
+        statusTxt.textContent = "In shift";
+        statusLed.classList.add("green");
+        statusLed.classList.remove("red");
+      } else {
+        statusTxt.textContent = "Not in shift";
+        statusLed.classList.add("red");
+        statusLed.classList.remove("green");
+      }
+
       const body = $("shiftBody");
       body.innerHTML = (shifts && shifts.length)
         ? shifts.map(s => `<tr><td>${s.date}</td><td>${s.in}</td><td>${s.out}</td><td>${s.hours}</td><td>${s.status}</td></tr>`).join("")
@@ -272,18 +291,24 @@
         .order("created_at", { ascending: false });
       const body = $("adminBody");
       body.innerHTML = (data && data.length)
-        ? data.map(r => `<tr><td>${new Date(r.created_at).toLocaleString()}</td><td>${r.full_name || r.email || r.user_id}</td><td>${r.action.toUpperCase()}</td></tr>`).join("")
-        : `<tr><td colspan="3" class="muted">No records yet.</td></tr>`;
+        ? data.map(r => `<tr>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td>${r.full_name || r.email || r.user_id}</td>
+            <td>${r.action.toUpperCase()}</td>
+            <td>${r.note ? r.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="4" class="muted">No records yet.</td></tr>`;
       $("btnExport").onclick = () => exportCSV(data || []);
     }
 
     function exportCSV(rows){
-      const header = ["When","User","Action"];
+      const header = ["When","User","Action","Note"];
       const csv = [header.join(",")].concat(
         rows.map(r => [
           new Date(r.created_at).toISOString(),
           `"${(r.full_name || r.email || r.user_id).replace(/"/g,'""')}"`,
-          r.action
+          r.action,
+          `"${(r.note ?? "").replace(/"/g,'""')}"`
         ].join(","))
       ).join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
