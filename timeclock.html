@@ -44,9 +44,32 @@
     .muted{color:var(--muted)}
     .hidden{display:none}
 
-    /* Table area */
-    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:420px;overflow-y:auto}
-    table{width:100%;border-collapse:collapse;min-width:560px}
+    /* Table area (kept as REAL table on all sizes) */
+    .table-scroll{
+      position:relative;
+      width:100%;
+      overflow-x:auto;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;  /* iOS momentum */
+      max-height:420px;
+      border-radius:12px;
+    }
+    /* subtle “scrollable” hint on mobile (CSS only) */
+    .table-scroll::after{
+      content:"Swipe to scroll →";
+      position:absolute;
+      right:8px; bottom:6px;
+      font-size:12px; color:var(--muted);
+      pointer-events:none;
+      opacity:0; transition:opacity .25s ease;
+    }
+    @media(max-width:700px){ .table-scroll::after{ opacity:0.9 } }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:640px;          /* forces horizontal scroll on narrow screens */
+    }
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
     .table-scroll thead th{
@@ -67,26 +90,14 @@
     .led.green{background:var(--green)}
     .led.red{background:#ef4444}
 
-    /* Mobile friendliness */
+    /* Mobile: keep table; just make controls full-width / tighter fonts */
     @media(max-width:700px){
       header strong{font-size:16px}
       .row > *{flex:1 1 100%}
       button, input, select{width:100%}
       .pill{font-size:12px}
-      /* Stack table rows into cards on small screens */
-      table, thead, tbody, th, td, tr { display:block; }
-      thead tr{ position:absolute; top:-9999px; left:-9999px; }
-      tr.shift-row{ border:1px solid var(--border); border-radius:12px; margin:0 0 10px; padding:8px; }
-      tr.shift-row td{ border:none; border-bottom:1px solid #222b3a; padding:10px 12px 10px 44%; position:relative; }
-      tr.shift-row td:last-child{ border-bottom:none; }
-      tr.shift-row td::before{
-        content:attr(data-label);
-        position:absolute; left:12px; top:10px; width:40%; color:var(--muted); font-weight:600;
-        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      }
-      tr.note-row td{ padding:12px; }
-      .table-scroll{max-height:none}
-      table{min-width:0}
+      th,td{padding:10px 8px}
+      table{min-width:560px} /* slightly narrower min to help smaller phones */
     }
   </style>
 </head>
@@ -268,7 +279,7 @@
         try { window.location.reload(); return; } catch(e){}
         try { window.top.location.reload(); return; } catch(e){}
         try {
-          const base = window.location.href.split("#")[0];
+          const base = window.location.href split("#")[0];
           const sep  = base.includes("?") ? "&" : "?";
           window.location.href = `${base}${sep}_r=${Date.now()}`; // cache-bust
           return;
@@ -303,6 +314,9 @@
     };
 
     // ===== App actions (staff only) =====
+    const btnClockIn  = $("btnClockIn");
+    const btnClockOut = $("btnClockOut");
+
     btnClockIn.onclick  = async () => addPunch("in");
     btnClockOut.onclick = async () => {
       const raw = prompt("Add a note for this shift (optional):", "");
@@ -398,18 +412,18 @@
       // set button states
       updateButtons(inShift);
 
-      // render rows + note toggles (add data-labels for mobile cards)
+      // render rows + note toggles (unchanged logic)
       const body = $("shiftBody");
       if (!shifts.length){
         body.innerHTML = `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
       } else {
         body.innerHTML = shifts.map((s,i)=>`
           <tr class="shift-row" data-idx="${i}" tabindex="0" aria-expanded="false">
-            <td data-label="Date">${s.date}</td>
-            <td data-label="Clock In">${s.in}</td>
-            <td data-label="Clock Out">${s.out}</td>
-            <td data-label="Hours">${s.hours}</td>
-            <td data-label="Status">${s.status}</td>
+            <td>${s.date}</td>
+            <td>${s.in}</td>
+            <td>${s.out}</td>
+            <td>${s.hours}</td>
+            <td>${s.status}</td>
           </tr>
           <tr class="note-row hidden" aria-hidden="true">
             <td colspan="5"><strong>Note:</strong> ${s.note ? escapeHtml(s.note) : "<em>None</em>"}</td>
