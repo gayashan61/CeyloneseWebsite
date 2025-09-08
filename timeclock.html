@@ -199,6 +199,10 @@
       const app  = $("app");
       const who  = $("who");
       const signOut = $("btnSignOut");
+	  
+	  if (profile?.is_admin === true || String(profile?.role||"").toLowerCase() === "admin") {
+  window.location.href = "admin.html";
+}else{
 
       if (user){
         who.textContent = (profile && profile.full_name) || user.email || "Signed in";
@@ -212,6 +216,7 @@
         app.classList.add("hidden");
         signOut.classList.add("hidden");
       }
+	  }
     }
 
     function showSignInUI(){
