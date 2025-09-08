@@ -212,7 +212,7 @@
       console.warn("Sign-out error:", e);
     } finally {
       // Instantly show Sign in and hide the logged-in app UI
-      setAuthUI(null, null);
+      showSignInUI();      
     }
     };
 
@@ -233,6 +233,19 @@
       if (error) { alert(error.message); return; }
       await loadShifts();
     }
+	
+	function showSignInUI(){
+  // Hard flip to the sign-in screen
+  $("authCard").classList.remove("hidden");
+  $("app").classList.add("hidden");
+  $("adminCard").classList.add("hidden");
+  $("btnSignOut").classList.add("hidden");
+  $("who").textContent = "";
+  // reset buttons to safe defaults
+  if (window.updateButtons) updateButtons(false);
+  // optional UX: clear & focus
+  $("email")?.focus();
+}
 
     function updateButtons(inShift){
       btnClockIn.disabled = !!inShift;
