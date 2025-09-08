@@ -244,7 +244,7 @@
 
     function tryGlobalSignOutNonBlocking(timeoutMs = 1200){
       try {
-        const p = supa.auth.signOut({ scope: "global" }); // may hang; don't await
+        const p = supa.auth.signOut({ scope: "global" }); // may hang; DO NOT await
         Promise.race([p, sleep(timeoutMs)]).catch(() => {});
       } catch (_) {}
     }
@@ -263,24 +263,31 @@
       }, delayMs);
     }
 
-    async function signOutSafely(){
-      // 1) Local sign-out (fast, no network), ignore errors
-      try { await supa.auth.signOut({ scope: "local" }); } catch(_) {}
+    // IMPORTANT: do NOT await inside this function
+    function signOutSafely(){
+      // 1) Kick off local sign-out WITHOUT awaiting
+      try { supa.auth.signOut({ scope: "local" }).catch(() => {}); } catch (_) {}
+
+      // 2) Manually clear storage immediately (guaranteed)
       nukeSupabaseStorage();
 
-      // 2) Fire-and-forget global revoke (don’t block UI)
+      // 3) Fire-and-forget global revoke (no await)
       tryGlobalSignOutNonBlocking();
 
-      // 3) Flip UI and refresh (or redirect if you prefer)
-      setAuthUI(null, null);
-      showSignInUI();
-      hardReload(); // or replace with: window.location.href = "/";  (same-origin)
+      // 4) Flip UI and reload (ensure paint then reload)
+      try {
+        setAuthUI(null, null);
+        showSignInUI();
+      } catch(_) {}
+      // Let the UI paint once, then reload to cold state
+      requestAnimationFrame(() => hardReload());
     }
 
-    // ===== Auth: Sign out (uses safe flow) =====
-    $("btnSignOut").onclick = async () => {
-      $("btnSignOut").disabled = true; // prevent double-clicks
-      await signOutSafely();
+    // ===== Auth: Sign out (uses safe, non-blocking flow) =====
+    $("btnSignOut").onclick = () => {
+      $("btnSignOut").disabled = true; // avoid double-clicks
+      // DO NOT make this handler async; do not await anything here
+      signOutSafely();
     };
 
     // ===== App actions =====
