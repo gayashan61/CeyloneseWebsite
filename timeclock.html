@@ -97,7 +97,7 @@
     <!-- APP -->
     <section ng-if="vm.ctx.user">
       <div class="row" style="margin-bottom:12px">
-        <div><strong>User:</strong> {{ vm.profile?.full_name || vm.ctx.user.email }}</div>
+        <div><strong>User:</strong> {{ (vm.profile && vm.profile.full_name) || vm.ctx.user.email }}</div>
         <div class="spacer"></div>
         <div class="muted">Now: {{ vm.now }}</div>
       </div>
@@ -185,42 +185,43 @@
       </div>
 
       <div class="foot">
-        © <span id="y"></span> Ceylonese TimeClock
+        © {{ vm.year }} Ceylonese TimeClock
       </div>
     </section>
   </main>
 
   <script>
   (function(){
-    // ====== 1) Insert your Supabase credentials ======
- 
-	const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
+    // ====== 1) Supabase credentials ======
+    const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
+    // =====================================
 
-    // ================================================
-
-    // Create Supabase client
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // ===== Angular App =====
     angular.module('timeclockApp', [])
     .service('Supa', function($q){
-      // Wrap Supabase Promises into $q so Angular digests UI updates
       const wrap = p => $q((res, rej) => p.then(res, rej));
-      this.getUser     = ()  => wrap(supa.auth.getUser());
+      this.getUser     = () => wrap(supa.auth.getUser());
       this.signIn      = (email, password) => wrap(supa.auth.signInWithPassword({ email, password }));
-      this.signOut     = ()  => wrap(supa.auth.signOut());
+      this.signOut     = () => wrap(supa.auth.signOut());
 
-      // Tables: profiles, punches, punches_view (read-only view)
+      // Keep profile select minimal-safe; add columns later once confirmed
       this.getProfile  = (id) => wrap(
-        supa.from('profiles').select('id, full_name, role, is_admin, email').eq('id', id).single()
+        supa.from('profiles')
+            .select('id, full_name')   // <-- safe minimal set
+            .eq('id', id)
+            .single()
       );
+
       this.insertPunch = (payload) => wrap(
         supa.from('punches').insert(payload).select().single()
       );
       this.getPunchesForUser = (userId) => wrap(
-        supa.from('punches').select('id, created_at, action, note, user_id')
-            .eq('user_id', userId).order('created_at', { ascending: true })
+        supa.from('punches')
+            .select('id, created_at, action, note, user_id')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
       );
       this.getAdminView = () => wrap(
         supa.from('punches_view')
@@ -228,7 +229,6 @@
             .order('created_at', { ascending: false })
       );
 
-      // Real-time (optional): listen for new punches
       this.subscribePunches = (cb) => {
         const channel = supa.channel('punches-stream')
           .on('postgres_changes',
@@ -242,6 +242,7 @@
     .controller('RootCtrl', function($scope, $filter, Supa){
       const vm = this;
 
+      vm.year     = new Date().getFullYear();   // footer year
       vm.ctx      = { user: null };
       vm.profile  = null;
       vm.shifts   = [];
@@ -250,7 +251,6 @@
       vm.msg      = '';
       vm.now      = new Date().toLocaleString();
 
-      // Utilities
       const fmtDate = d => new Date(d).toLocaleDateString();
       const fmtTime = d => new Date(d).toLocaleTimeString();
       const diffHours = (a, b) => {
@@ -258,10 +258,11 @@
         return ms > 0 ? (ms / 36e5).toFixed(2) : '-';
       };
 
-      // Refresh everything (user, profile, data)
       vm.refresh = async function(){
         try{
-          const { data: { user } } = await Supa.getUser();
+          const { data: { user }, error: uErr } = await Supa.getUser();
+          if (uErr) console.warn('getUser error:', uErr);
+
           if(!user){
             vm.ctx.user = null;
             vm.profile = null;
@@ -274,7 +275,8 @@
           }
           vm.ctx.user = user;
 
-          const { data: profile } = await Supa.getProfile(user.id);
+          const { data: profile, error: pErr } = await Supa.getProfile(user.id);
+          if (pErr) console.warn('profiles select error:', pErr);
           vm.profile = profile || null;
 
           await vm.loadShifts();
@@ -283,6 +285,7 @@
           vm.now = new Date().toLocaleString();
           $scope.$applyAsync();
         } catch (e){
+          console.error(e);
           vm.msg = e.message || 'Failed to refresh';
           $scope.$applyAsync();
         }
@@ -339,7 +342,7 @@
               in:   fmtTime(currentIn),
               out:  fmtTime(p.created_at),
               hours: diffHours(currentIn, p.created_at),
-              status: 'Pending' // keep or map to your approval field if you add one
+              status: 'Pending'
             });
             currentIn = null;
           }
@@ -379,12 +382,8 @@
         URL.revokeObjectURL(url);
       };
 
-      // Supabase auth state listener (keeps UI in sync across tabs)
-      supa.auth.onAuthStateChange((_event, _session) => {
-        vm.refresh();
-      });
+      supa.auth.onAuthStateChange((_event, _session) => vm.refresh());
 
-      // Optional realtime subscription to punches (live updates)
       let rtChannel = null;
       (async () => {
         rtChannel = Supa.subscribePunches(async () => {
@@ -394,14 +393,11 @@
         });
       })();
 
-      // Cleanup (if this page were SPA-routed; here for completeness)
       window.addEventListener('beforeunload', () => {
         if (rtChannel) Supa.unsubscribe(rtChannel);
       });
 
-      // initial load
       vm.refresh();
-     // document.getElementById('y').textContent = new Date().getFullYear();
     });
   })();
   </script>
