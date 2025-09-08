@@ -198,7 +198,7 @@
       $("email")?.focus();
     }
 
-    // ===== Auth: Sign in / out =====
+    // ===== Auth: Sign in =====
     $("btnSignIn").onclick = async () => {
       const email = $("email").value.trim();
       const password = $("password").value;
@@ -232,18 +232,55 @@
       })
     );
 
-    $("btnSignOut").onclick = async () => {
+    // ===== Non-blocking sign-out helpers =====
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    function nukeSupabaseStorage(){
       try {
-       // await supa.auth.signOut();
-      } catch (e) {
-        console.warn("Sign-out error:", e);
-      } finally {
-        // Flip back to sign-in immediately (no reload to avoid auth races)
-      //  setAuthUI(null, null);
-      //  showSignInUI();
-		 console.log("Sign-out error:");
-		hardReload();         
-      }
+        Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-")) localStorage.removeItem(k); });
+        sessionStorage.clear?.();
+      } catch (_) {}
+    }
+
+    function tryGlobalSignOutNonBlocking(timeoutMs = 1200){
+      try {
+        const p = supa.auth.signOut({ scope: "global" }); // may hang; don't await
+        Promise.race([p, sleep(timeoutMs)]).catch(() => {});
+      } catch (_) {}
+    }
+
+    function hardReload(delayMs = 50){
+      setTimeout(() => {
+        try { window.location.reload(); return; } catch(e){}
+        try { window.top.location.reload(); return; } catch(e){}
+        try {
+          const base = window.location.href.split("#")[0];
+          const sep  = base.includes("?") ? "&" : "?";
+          window.location.href = `${base}${sep}_r=${Date.now()}`; // cache-bust
+          return;
+        } catch(e){}
+        try { history.go(0); } catch(e){}
+      }, delayMs);
+    }
+
+    async function signOutSafely(){
+      // 1) Local sign-out (fast, no network), ignore errors
+      try { await supa.auth.signOut({ scope: "local" }); } catch(_) {}
+      nukeSupabaseStorage();
+
+      // 2) Fire-and-forget global revoke (don’t block UI)
+      tryGlobalSignOutNonBlocking();
+
+      // 3) Flip UI and refresh (or redirect if you prefer)
+      setAuthUI(null, null);
+      showSignInUI();
+      hardReload(); // or replace with: window.location.href = "/";  (same-origin)
+    }
+
+    // ===== Auth: Sign out (uses safe flow) =====
+    $("btnSignOut").onclick = async () => {
+      $("btnSignOut").disabled = true; // prevent double-clicks
+      await signOutSafely();
     };
 
     // ===== App actions =====
@@ -412,21 +449,6 @@
       a.href = url; a.download = "attendance-today.csv"; a.click();
       URL.revokeObjectURL(url);
     }
-	
-	function hardReload(delayMs = 50){
-	console.log("Sign-out error:aaa");
-  setTimeout(() => {
-    try { window.location.reload(); return; } catch(e){}
-    try { window.top.location.reload(); return; } catch(e){}
-    try {
-      const base = window.location.href.split("#")[0];
-      const sep  = base.includes("?") ? "&" : "?";
-      window.location.href = `${base}${sep}_r=${Date.now()}`; // bust cache
-      return;
-    } catch(e){}
-    try { history.go(0); } catch(e){}
-  }, delayMs);
-}
 
     // ===== Boot =====
     (async () => {
