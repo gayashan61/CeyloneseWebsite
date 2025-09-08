@@ -5,25 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ceylonese TimeClock — Admin</title>
 
-  <!--
-  (Optional) Run once in Supabase SQL editor to enable approvals:
-
-  create table if not exists public.shift_approvals (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null,
-    in_time timestamptz not null,
-    out_time timestamptz not null,
-    hours numeric not null,
-    status text not null check (status in ('approved','rejected')),
-    approved_by uuid not null,
-    approved_at timestamptz not null default now(),
-    note text
-  );
-
-  create unique index if not exists ux_shift_approvals_key
-    on public.shift_approvals (user_id, in_time, out_time);
-  -->
-
   <!-- Fonts & Supabase -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,12 +37,9 @@
     button.approve{background:#103314;border-color:#103314}
     button.reject{background:#3a2020;border-color:#3a2020}
     button:disabled{opacity:.55;cursor:not-allowed}
-
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
     .field{min-width:180px}
-
     .banner{background:#2c2210;border:1px solid #3b2d12;color:#fef3c7;padding:10px 12px;border-radius:10px;margin:10px 0}
-
     .table-scroll{position:relative;width:100%;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:60vh;border-radius:12px}
     .table-scroll::after{content:"Swipe to scroll →";position:absolute;right:8px;bottom:6px;font-size:12px;color:var(--muted);pointer-events:none;opacity:0}
     @media(max-width:760px){.table-scroll::after{opacity:.9}}
@@ -73,7 +51,6 @@
     .status.pending{background:#101521;color:#f8fafc}
     .status.approved{background:#0f2f19;color:#dcfce7;border-color:#1e4f2b}
     .status.rejected{background:#3a2020;color:#fee2e2;border-color:#5b2525}
-
     @media(max-width:760px){
       .row > *{flex:1 1 100%}
       .toolbar{align-items:stretch}
@@ -154,7 +131,7 @@
 
         <div id="approvalsBanner" class="banner hidden">
           Approvals table not found. You can still view/export shifts, but Approve/Reject will fail until you create
-          <code>shift_approvals</code> (see comment at the top of this file).
+          <code>shift_approvals</code>.
         </div>
 
         <div class="table-scroll">
