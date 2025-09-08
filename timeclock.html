@@ -275,18 +275,18 @@
     }
 
     function hardReload(delayMs = 50){
-      setTimeout(() => {
-        try { window.location.reload(); return; } catch(e){}
-        try { window.top.location.reload(); return; } catch(e){}
-        try {
-          const base = window.location.href split("#")[0];
-          const sep  = base.includes("?") ? "&" : "?";
-          window.location.href = `${base}${sep}_r=${Date.now()}`; // cache-bust
-          return;
-        } catch(e){}
-        try { history.go(0); } catch(e){}
-      }, delayMs);
-    }
+  setTimeout(() => {
+    try { window.location.reload(); return; } catch(e){}
+    try { window.top.location.reload(); return; } catch(e){}
+    try {
+      const base = window.location.href.split("#")[0]; // ← dot added here
+      const sep  = base.includes("?") ? "&" : "?";
+      window.location.href = `${base}${sep}_r=${Date.now()}`; // cache-bust
+      return;
+    } catch(e){}
+    try { history.go(0); } catch(e){}
+  }, delayMs);
+}
 
     // IMPORTANT: do NOT await inside this function
     function signOutSafely(){
