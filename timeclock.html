@@ -241,7 +241,7 @@
         // Flip back to sign-in immediately (no reload to avoid auth races)
         setAuthUI(null, null);
         showSignInUI();
-		window.location.replace("https://ceylonese.au/");
+		hardReload();         
       }
     };
 
@@ -411,6 +411,20 @@
       a.href = url; a.download = "attendance-today.csv"; a.click();
       URL.revokeObjectURL(url);
     }
+	
+	function hardReload(delayMs = 50){
+  setTimeout(() => {
+    try { window.location.reload(); return; } catch(e){}
+    try { window.top.location.reload(); return; } catch(e){}
+    try {
+      const base = window.location.href.split("#")[0];
+      const sep  = base.includes("?") ? "&" : "?";
+      window.location.href = `${base}${sep}_r=${Date.now()}`; // bust cache
+      return;
+    } catch(e){}
+    try { history.go(0); } catch(e){}
+  }, delayMs);
+}
 
     // ===== Boot =====
     (async () => {
