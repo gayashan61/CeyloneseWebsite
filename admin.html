@@ -200,36 +200,37 @@
     }
 
     function renderShifts(){
-      const body = $("adminBody");
-      if (!CURRENT_SHIFTS.length){
-        body.innerHTML = `<tr><td colspan="7" class="muted">No shifts in this range.</td></tr>`;
-        return;
-      }
-      body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
-        <tr data-idx="${i}">
-          <td>${new Date(s.in_time).toLocaleDateString()} <span class="muted">(${new Date(s.in_time).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
-          <td>${(s.full_name || s.email || s.user_id)}</td>
-          <td>${new Date(s.in_time).toLocaleTimeString()}</td>
-          <td>${new Date(s.out_time).toLocaleTimeString()}</td>
-          <td>${Number(s.hours).toFixed(2)}</td>
-          <td><span class="status ${s.status}">${(s.status||'pending').replace(/^./,c=>c.toUpperCase())}</span></td>
-          <td>
-            <div style="display:flex;gap:8px">
-              <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
-              <button class="reject"  data-action="reject"  ${s.status==='rejected'?'disabled':''}>Reject</button>
-            </div>
-          </td>
-        </tr>
-        <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + String(s.note).replace(/</g,'&lt;').replace(/>/g,'&gt;')) : ''}</td></tr>
-      ").join("");
-      body.onclick = async (e)=>{
-        const btn = e.target.closest("button[data-action]"); if (!btn) return;
-        const row = btn.closest("tr[data-idx]"); if (!row) return;
-        const idx = +row.dataset.idx; const shift = CURRENT_SHIFTS[idx];
-        const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
-        await setApproval(shift, status);
-      };
-    }
+  const body = $("adminBody");
+  if (!CURRENT_SHIFTS.length){
+    body.innerHTML = `<tr><td colspan="7" class="muted">No shifts in this range.</td></tr>`;
+    return;
+  }
+  body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
+    <tr data-idx="${i}">
+      <td>${new Date(s.in_time).toLocaleDateString()} <span class="muted">(${new Date(s.in_time).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
+      <td>${(s.full_name || s.email || s.user_id)}</td>
+      <td>${new Date(s.in_time).toLocaleTimeString()}</td>
+      <td>${new Date(s.out_time).toLocaleTimeString()}</td>
+      <td>${Number(s.hours).toFixed(2)}</td>
+      <td><span class="status ${s.status}">${(s.status||'pending').replace(/^./,c=>c.toUpperCase())}</span></td>
+      <td>
+        <div style="display:flex;gap:8px">
+          <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
+          <button class="reject"  data-action="reject"  ${s.status==='rejected'?'disabled':''}>Reject</button>
+        </div>
+      </td>
+    </tr>
+    <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + String(s.note).replace(/</g,'&lt;').replace(/>/g,'&gt;')) : ''}</td></tr>
+  `).join("");
+
+  body.onclick = async (e)=>{
+    const btn = e.target.closest("button[data-action]"); if (!btn) return;
+    const row = btn.closest("tr[data-idx]"); if (!row) return;
+    const idx = +row.dataset.idx; const shift = CURRENT_SHIFTS[idx];
+    const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
+    await setApproval(shift, status);
+  };
+}
 
     function exportCSV(){
       if (!CURRENT_SHIFTS.length){ alert("Nothing to export"); return; }
