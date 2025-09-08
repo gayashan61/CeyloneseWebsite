@@ -193,12 +193,29 @@
     }
 
     $("btnSignIn").onclick = async () => {
-      const email = $("email").value.trim();
-      const password = $("password").value;
-      $("authMsg").textContent = "";
-      const { error } = await supa.auth.signInWithPassword({ email, password });
-      if (error) $("authMsg").textContent = error.message;
-    };
+  const email = $("email").value.trim();
+  const password = $("password").value;
+  const msg = $("authMsg");
+  msg.textContent = "";
+
+  try {
+    const { data, error } = await supa.auth.signInWithPassword({ email, password });
+    if (error) { msg.textContent = error.message; return; }
+
+    // Don’t wait for onAuthStateChange—show the app immediately
+    const { data: { user } } = await supa.auth.getUser();
+    const { data: profile } = await supa
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    setAuthUI(user, profile);
+  } catch (e) {
+    console.error("Sign-in exception:", e);
+    msg.textContent = "Sign-in failed. See console for details.";
+  }
+};
 
     $("btnSignOut").onclick = async () => {
      
