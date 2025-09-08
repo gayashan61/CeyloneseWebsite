@@ -6,7 +6,7 @@
   <title>Ceylonese TimeClock — Admin</title>
 
   <!--
-  Run this once in Supabase SQL to enable approvals (optional but recommended):
+  (Optional) Run once in Supabase SQL editor to enable approvals:
 
   create table if not exists public.shift_approvals (
     id uuid primary key default gen_random_uuid(),
@@ -20,7 +20,6 @@
     note text
   );
 
-  -- Speed up lookups & avoid duplicates (not required but ideal):
   create unique index if not exists ux_shift_approvals_key
     on public.shift_approvals (user_id, in_time, out_time);
   -->
@@ -35,7 +34,6 @@
     :root{
       --bg:#0f1115; --panel:#151a22; --ink:#e7ebf2; --muted:#94a3b8;
       --gold:#c9a227; --red:#ef4444; --green:#22c55e; --border:#1f2430;
-      --amber:#f59e0b;
     }
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
@@ -48,16 +46,13 @@
     .muted{color:var(--muted)}
     .hidden{display:none}
     .right{margin-left:auto}
-
     .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
-
     input,button,select{font:inherit}
     input{width:100%;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#0c0f14;color:var(--ink)}
     label{display:block;font-weight:600;margin:0 0 6px}
     button{padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:#0c0f14;color:#fff;cursor:pointer;font-weight:700;min-height:40px}
     button.primary{background:var(--gold);border-color:var(--gold);color:#111}
     button.ghost{background:transparent}
-    button.danger{background:transparent;border-color:#3a2020;color:#fecaca}
     button.approve{background:#103314;border-color:#103314}
     button.reject{background:#3a2020;border-color:#3a2020}
     button:disabled{opacity:.55;cursor:not-allowed}
@@ -70,22 +65,14 @@
     .table-scroll{position:relative;width:100%;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:60vh;border-radius:12px}
     .table-scroll::after{content:"Swipe to scroll →";position:absolute;right:8px;bottom:6px;font-size:12px;color:var(--muted);pointer-events:none;opacity:0}
     @media(max-width:760px){.table-scroll::after{opacity:.9}}
-
     table{width:100%;border-collapse:collapse;min-width:900px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:middle}
     th{text-align:left;color:#cbd5e1;font-weight:700}
     thead th{position:sticky;top:0;background:var(--panel);z-index:2;box-shadow:0 2px 0 0 #222b3a}
-
     .status{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:#d1d5db}
     .status.pending{background:#101521;color:#f8fafc}
     .status.approved{background:#0f2f19;color:#dcfce7;border-color:#1e4f2b}
     .status.rejected{background:#3a2020;color:#fee2e2;border-color:#5b2525}
-
-    .controls{display:flex;gap:8px}
-    .fit{white-space:nowrap}
-
-    .note{color:var(--muted);font-size:12px}
-    .sep{opacity:.25;margin:0 6px}
 
     @media(max-width:760px){
       .row > *{flex:1 1 100%}
@@ -112,7 +99,42 @@
     </div>
 
     <main class="wrap">
-      <!-- Filter toolbar -->
+      <!-- Create Staff -->
+      <section class="card" style="margin-bottom:14px">
+        <h3 style="margin:0 0 12px">Create Staff Member</h3>
+        <div class="row">
+          <div class="field" style="flex:1 1 240px; min-width:220px">
+            <label>Full name</label>
+            <input id="cs_fullname" type="text" placeholder="Jane Doe" />
+          </div>
+          <div class="field" style="flex:1 1 260px; min-width:240px">
+            <label>Email</label>
+            <input id="cs_email" type="email" placeholder="jane@company.com" />
+          </div>
+          <div class="field" style="min-width:140px">
+            <label>&nbsp;</label>
+            <label class="muted" style="display:flex;gap:8px;align-items:center">
+              <input id="cs_is_admin" type="checkbox" /> Make admin
+            </label>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="muted" style="display:flex;gap:8px;align-items:center">
+            <input id="cs_use_password" type="checkbox" />
+            Set a temporary password (otherwise an invite email is sent)
+          </label>
+          <div id="cs_pw_field" class="field hidden" style="flex:1 1 220px; min-width:220px">
+            <label>Temporary password</label>
+            <input id="cs_password" type="text" autocomplete="new-password" placeholder="e.g. Temp#12345" />
+          </div>
+          <div class="right" style="display:flex;gap:10px;align-items:center">
+            <button id="cs_create" class="primary">Create Staff</button>
+            <span id="cs_msg" class="muted"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filter + Table -->
       <section class="card">
         <div class="toolbar">
           <div class="field" style="flex:1 1 160px">
@@ -123,7 +145,7 @@
             <label>To</label>
             <input id="toDate" type="date" />
           </div>
-          <div class="controls fit">
+          <div style="display:flex;gap:10px;align-items:flex-end">
             <button id="btnApply" class="primary">Apply</button>
             <button id="btnExport" class="ghost">Export CSV</button>
           </div>
@@ -135,7 +157,6 @@
           <code>shift_approvals</code> (see comment at the top of this file).
         </div>
 
-        <!-- Shifts table -->
         <div class="table-scroll">
           <table>
             <thead>
@@ -146,7 +167,7 @@
                 <th>Clock Out</th>
                 <th>Hours</th>
                 <th>Status</th>
-                <th class="fit">Actions</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="adminBody">
@@ -159,7 +180,7 @@
   </div>
 
   <script>
-    // ===== Supabase init =====
+    // ===== Supabase init (public anon key is OK on client) =====
     const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -170,23 +191,26 @@
     const fmtTime = (d) => new Date(d).toLocaleTimeString();
     const toISOStart = (dStr) => new Date(dStr + "T00:00:00").toISOString();
     const toISOEnd   = (dStr) => new Date(dStr + "T23:59:59.999").toISOString();
-
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+    // ===== Auth guard & role check =====
+    async function getProfile(){
+      const { data: { user } } = await supa.auth.getUser();
+      if (!user) return { user:null, profile:null };
+      const { data: profile } = await supa.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      return { user, profile };
+    }
+    function isAdmin(profile){
+      return profile?.is_admin === true || String(profile?.role||"").toLowerCase() === "admin";
+    }
+
+    // ===== Non-blocking sign-out =====
     function nukeSupabaseStorage(){
-      try {
-        Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-")) localStorage.removeItem(k); });
-        sessionStorage.clear?.();
-      } catch (_) {}
+      try { Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-")) localStorage.removeItem(k); }); sessionStorage.clear?.(); } catch(_){}
     }
-
     function tryGlobalSignOutNonBlocking(timeoutMs = 1200){
-      try {
-        const p = supa.auth.signOut({ scope: "global" });
-        Promise.race([p, sleep(timeoutMs)]).catch(()=>{});
-      } catch (_) {}
+      try { const p = supa.auth.signOut({ scope: "global" }); Promise.race([p, sleep(timeoutMs)]).catch(()=>{}); } catch(_){}
     }
-
     function hardReload(delayMs = 50){
       setTimeout(() => {
         try { window.location.reload(); return; } catch(e){}
@@ -200,44 +224,25 @@
         try { history.go(0); } catch(e){}
       }, delayMs);
     }
-
     function signOutSafely(){
       try { supa.auth.signOut({ scope: "local" }).catch(()=>{}); } catch(_){}
-      nukeSupabaseStorage();
-      tryGlobalSignOutNonBlocking();
-      requestAnimationFrame(()=>hardReload());
+      nukeSupabaseStorage(); tryGlobalSignOutNonBlocking(); requestAnimationFrame(()=>hardReload());
     }
+    $("btnSignOut").onclick = () => { $("btnSignOut").disabled = true; signOutSafely(); };
 
-    // ===== Auth guard & role check =====
-    async function getProfile(){
-      const { data: { user } } = await supa.auth.getUser();
-      if (!user) return { user:null, profile:null };
-      const { data: profile } = await supa.from("profiles").select("*").eq("id", user.id).maybeSingle();
-      return { user, profile };
-    }
-
-    function isAdmin(profile){
-      // Accept either boolean `is_admin` or string role 'admin'
-      return profile?.is_admin === true || String(profile?.role||"").toLowerCase() === "admin";
-    }
-
-    // ===== Load & build shifts =====
-    let CURRENT_SHIFTS = []; // array of {user_id, user_name, user_email, in, out, hours, note, status}
-
+    // ===== Shifts build/display =====
+    let CURRENT_SHIFTS = [];
     async function fetchPunches(fromISO, toISO){
-      // prefer punches_view (user info included)
       const { data, error } = await supa
         .from("punches_view")
-        .select("created_at, action, note, user_id, full_name, email")
+        .select("*")
         .gte("created_at", fromISO)
         .lte("created_at", toISO)
         .order("user_id", { ascending: true })
         .order("created_at", { ascending: true });
-
-      if (error) { console.error(error); throw error; }
+      if (error) throw error;
       return data || [];
     }
-
     async function fetchApprovals(fromISO, toISO){
       try{
         const { data, error } = await supa
@@ -246,29 +251,28 @@
           .gte("in_time", fromISO)
           .lte("out_time", toISO);
         if (error) throw error;
+        $("approvalsBanner").classList.add("hidden");
         return data || [];
       }catch(e){
-        // approvals table probably doesn't exist
         $("approvalsBanner").classList.remove("hidden");
         return [];
       }
     }
-
+    function calcHours(inTime, outTime){
+      const diff = new Date(outTime) - new Date(inTime);
+      return diff > 0 ? (diff/1000/60/60).toFixed(2) : "0.00";
+    }
     function buildShiftsForAll(punchRows, approvals){
-      // index approvals by user_id|in|out
       const apprMap = new Map();
       for (const a of approvals){
         const k = `${a.user_id}|${new Date(a.in_time).toISOString()}|${new Date(a.out_time).toISOString()}`;
         apprMap.set(k, a.status);
       }
-
-      // group by user
       const byUser = new Map();
       for (const p of punchRows){
         if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
         byUser.get(p.user_id).push(p);
       }
-
       const shifts = [];
       for (const [uid, rows] of byUser){
         let currentIn = null;
@@ -279,17 +283,15 @@
           } else if (r.action === "out" && currentIn){
             const inT  = currentIn;
             const outT = r.created_at;
-            const hours = calcHours(inT, outT);
             const key = `${uid}|${new Date(inT).toISOString()}|${new Date(outT).toISOString()}`;
-            const status = apprMap.get(key) || "pending";
             shifts.push({
               user_id: uid,
               user_name: meta.name || meta.email || uid,
               user_email: meta.email,
               in: inT,
               out: outT,
-              hours,
-              status,
+              hours: calcHours(inT, outT),
+              status: apprMap.get(key) || "pending",
               note: r.note || ""
             });
             currentIn = null;
@@ -298,13 +300,38 @@
       }
       return shifts;
     }
-
-    function calcHours(inTime, outTime){
-      const diff = new Date(outTime) - new Date(inTime);
-      if (diff <= 0) return "0.00";
-      return (diff/1000/60/60).toFixed(2);
+    function escapeHtml(s){ return (s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+    async function setApproval(shift, status){
+      try{
+        const { data: { user: admin } } = await supa.auth.getUser();
+        if (!admin) { alert("Not signed in"); return; }
+        const inISO  = new Date(shift.in).toISOString();
+        const outISO = new Date(shift.out).toISOString();
+        const { data: existing } = await supa
+          .from("shift_approvals")
+          .select("id")
+          .eq("user_id", shift.user_id)
+          .eq("in_time", inISO)
+          .eq("out_time", outISO)
+          .limit(1)
+          .maybeSingle();
+        if (existing?.id){
+          const { error: upErr } = await supa
+            .from("shift_approvals")
+            .update({ status, hours: shift.hours, approved_by: admin.id, approved_at: new Date().toISOString() })
+            .eq("id", existing.id);
+          if (upErr) throw upErr;
+        } else {
+          const { error: insErr } = await supa
+            .from("shift_approvals")
+            .insert({ user_id: shift.user_id, in_time: inISO, out_time: outISO, hours: shift.hours, status, approved_by: admin.id });
+          if (insErr) throw insErr;
+        }
+        shift.status = status; renderShifts();
+      }catch(e){
+        console.warn(e); alert("Approvals not available yet. Create the 'shift_approvals' table.");
+      }
     }
-
     function renderShifts(){
       const body = $("adminBody");
       if (!CURRENT_SHIFTS.length){
@@ -313,100 +340,29 @@
       }
       body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
         <tr data-idx="${i}">
-          <td>
-            ${fmtDate(s.in)}
-            <span class="sep">·</span>
-            <span class="note">${new Date(s.in).toLocaleDateString(undefined,{weekday:'short'})}</span>
-          </td>
+          <td>${fmtDate(s.in)} <span class="muted">(${new Date(s.in).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
           <td>${escapeHtml(s.user_name)}</td>
           <td>${fmtTime(s.in)}</td>
           <td>${fmtTime(s.out)}</td>
           <td>${s.hours}</td>
+          <td><span class="status ${s.status}">${s.status[0].toUpperCase()+s.status.slice(1)}</span></td>
           <td>
-            <span class="status ${s.status}">
-              ${s.status.charAt(0).toUpperCase()+s.status.slice(1)}
-            </span>
-          </td>
-          <td class="fit">
-            <div class="controls">
+            <div style="display:flex;gap:8px">
               <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
               <button class="reject"  data-action="reject"  ${s.status==='rejected'?'disabled':''}>Reject</button>
             </div>
           </td>
         </tr>
-        <tr>
-          <td colspan="7" class="note">${s.note ? ('Note: ' + escapeHtml(s.note)) : ''}</td>
-        </tr>
+        <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + escapeHtml(s.note)) : ''}</td></tr>
       `).join("");
-
-      // Wire buttons (event delegation)
-      body.onclick = async (e) => {
-        const btn = e.target.closest("button[data-action]");
-        if (!btn) return;
-        const row = btn.closest("tr[data-idx]");
-        if (!row) return;
-        const idx = +row.dataset.idx;
-        const shift = CURRENT_SHIFTS[idx];
-        const action = btn.dataset.action; // 'approve' | 'reject'
-        await setApproval(shift, action === "approve" ? "approved" : "rejected");
+      body.onclick = async (e)=>{
+        const btn = e.target.closest("button[data-action]"); if (!btn) return;
+        const row = btn.closest("tr[data-idx]"); if (!row) return;
+        const idx = +row.dataset.idx; const shift = CURRENT_SHIFTS[idx];
+        const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
+        await setApproval(shift, status);
       };
     }
-
-    function escapeHtml(s){
-      return (s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-    }
-
-    async function setApproval(shift, status){
-      // try get or create approval row without needing unique index
-      try{
-        const { data: { user: admin } } = await supa.auth.getUser();
-        if (!admin) { alert("Not signed in"); return; }
-
-        // Does a record already exist?
-        const { data: existing } = await supa
-          .from("shift_approvals")
-          .select("id")
-          .eq("user_id", shift.user_id)
-          .eq("in_time", new Date(shift.in).toISOString())
-          .eq("out_time", new Date(shift.out).toISOString())
-          .limit(1)
-          .maybeSingle();
-
-        if (existing && existing.id){
-          const { error: upErr } = await supa
-            .from("shift_approvals")
-            .update({
-              status,
-              hours: shift.hours,
-              approved_by: admin.id,
-              approved_at: new Date().toISOString()
-            })
-            .eq("id", existing.id);
-          if (upErr) throw upErr;
-        } else {
-          const { error: insErr } = await supa
-            .from("shift_approvals")
-            .insert({
-              user_id: shift.user_id,
-              in_time: new Date(shift.in).toISOString(),
-              out_time: new Date(shift.out).toISOString(),
-              hours: shift.hours,
-              status,
-              approved_by: admin.id,
-              approved_at: new Date().toISOString()
-            });
-          if (insErr) throw insErr;
-        }
-
-        // Update UI state locally
-        shift.status = status;
-        renderShifts();
-      }catch(e){
-        console.warn(e);
-        alert("Approvals feature not available yet. Create the 'shift_approvals' table (see comment at top).");
-      }
-    }
-
     function exportCSV(){
       if (!CURRENT_SHIFTS.length){ alert("Nothing to export"); return; }
       const header = ["Date","User","Clock In","Clock Out","Hours","Status","Note"];
@@ -421,48 +377,74 @@
           `"${(s.note||"").replace(/"/g,'""')}"`
         ].join(","))
       ).join("\n");
-
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "all-shifts.csv"; a.click();
+      const a = document.createElement("a"); a.href = url; a.download = "all-shifts.csv"; a.click();
       URL.revokeObjectURL(url);
     }
 
-    // ===== Load range =====
+    // ===== Create Staff (calls serverless function) =====
+    (function wireCreateStaff(){
+      const usePw = $("cs_use_password"), pwField = $("cs_pw_field");
+      if (usePw) usePw.onchange = ()=> pwField.classList.toggle("hidden", !usePw.checked);
+
+      const btn = $("cs_create");
+      btn.onclick = async () => {
+        const full_name = $("cs_fullname").value.trim();
+        const email = $("cs_email").value.trim();
+        const is_admin = $("cs_is_admin").checked;
+        const send_invite = !usePw.checked;
+        const password = send_invite ? undefined : $("cs_password").value;
+        const msg = $("cs_msg");
+        msg.textContent = "";
+
+        if (!full_name || !email){ msg.textContent = "Full name and email are required."; return; }
+        if (!send_invite && !password){ msg.textContent = "Please provide a temporary password."; return; }
+
+        const { data: { session } } = await supa.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken){ msg.textContent = "Not signed in."; return; }
+
+        btn.disabled = true; msg.textContent = "Creating…";
+        try{
+          const res = await fetch('/.netlify/functions/create-staff', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ email, full_name, role: is_admin?'admin':'staff', is_admin, send_invite, password })
+          });
+          const j = await res.json().catch(()=> ({}));
+          if (!res.ok){ msg.textContent = j.error || "Failed to create staff."; return; }
+          msg.textContent = j.invited ? "Staff created and invite sent." : "Staff created with temporary password.";
+          $("cs_fullname").value=""; $("cs_email").value=""; $("cs_is_admin").checked=false;
+          if (!send_invite) $("cs_password").value="";
+          usePw.checked=false; pwField.classList.add("hidden");
+        }catch(e){
+          console.warn(e); msg.textContent = "Network error.";
+        }finally{
+          btn.disabled = false;
+        }
+      };
+    })();
+
+    // ===== Filter/load =====
     function setDefaultDates(){
-      // default last 30 days
       const today = new Date(); today.setHours(0,0,0,0);
       const dTo = today.toISOString().slice(0,10);
       const from = new Date(today); from.setDate(from.getDate()-30);
       const dFrom = from.toISOString().slice(0,10);
-      $("fromDate").value = dFrom;
-      $("toDate").value   = dTo;
+      $("fromDate").value = dFrom; $("toDate").value = dTo;
     }
-
     async function loadRange(){
-      const from = $("fromDate").value;
-      const to   = $("toDate").value;
+      const from = $("fromDate").value, to = $("toDate").value;
       if (!from || !to){ alert("Please select From and To dates"); return; }
-
       $("loadMsg").textContent = "Loading…";
-      $("approvalsBanner").classList.add("hidden");
-
-      const fromISO = toISOStart(from);
-      const toISO   = toISOEnd(to);
+      const fromISO = toISOStart(from), toISO = toISOEnd(to);
       try{
-        const [punches, approvals] = await Promise.all([
-          fetchPunches(fromISO, toISO),
-          fetchApprovals(fromISO, toISO)
-        ]);
-        CURRENT_SHIFTS = buildShiftsForAll(punches, approvals)
-          // only show completed shifts (in/out present)
-          .filter(s => s.in && s.out);
-
+        const [punches, approvals] = await Promise.all([fetchPunches(fromISO, toISO), fetchApprovals(fromISO, toISO)]);
+        CURRENT_SHIFTS = buildShiftsForAll(punches, approvals).filter(s => s.in && s.out);
         renderShifts();
       }catch(e){
-        console.error(e);
-        $("adminBody").innerHTML = `<tr><td colspan="7" class="muted">Failed to load shifts.</td></tr>`;
+        console.error(e); $("adminBody").innerHTML = `<tr><td colspan="7" class="muted">Failed to load shifts.</td></tr>`;
       }finally{
         $("loadMsg").textContent = "";
       }
@@ -470,39 +452,15 @@
 
     // ===== Boot =====
     (async () => {
-      // Auth guard
       const ctx = await getProfile();
-      if (!ctx.user){
-        // not signed in → bounce to staff page (sign-in)
-        window.location.replace("./");
-        return;
-      }
-      // Role guard
-      if (!isAdmin(ctx.profile)){
-        alert("Admin access required");
-        window.location.replace("./");
-        return;
-      }
-
-      // Header who
+      if (!ctx.user){ window.location.replace("./"); return; }
+      if (!isAdmin(ctx.profile)){ alert("Admin access required"); window.location.replace("./"); return; }
       $("who").textContent = ctx.profile?.full_name || ctx.user.email || "Admin";
-
-      // Wire controls
       setDefaultDates();
       $("btnApply").onclick = loadRange;
       $("btnExport").onclick = exportCSV;
-      $("btnSignOut").onclick = () => {
-        $("btnSignOut").disabled = true;
-        signOutSafely();
-      };
-
-      // Initial load
       await loadRange();
-
-      // Keep session state sane
-      supa.auth.onAuthStateChange(async (_ev, session) => {
-        if (!session) window.location.replace("./");
-      });
+      supa.auth.onAuthStateChange(async (_ev, session) => { if (!session) window.location.replace("./"); });
     })();
   </script>
 </body>

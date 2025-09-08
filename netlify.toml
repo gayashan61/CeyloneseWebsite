@@ -1,0 +1,5 @@
+[build]
+  publish = "."                # serve index.html from repo root
+  functions = "netlify/functions"
+
+# (optional) If you use SPA-style routes later, add redirects here
