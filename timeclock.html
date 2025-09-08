@@ -241,6 +241,7 @@
         // Flip back to sign-in immediately (no reload to avoid auth races)
         setAuthUI(null, null);
         showSignInUI();
+		 console.log("Sign-out error:");
 		hardReload();         
       }
     };
@@ -413,6 +414,7 @@
     }
 	
 	function hardReload(delayMs = 50){
+	console.log("Sign-out error:aaa");
   setTimeout(() => {
     try { window.location.reload(); return; } catch(e){}
     try { window.top.location.reload(); return; } catch(e){}
