@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en" ng-app="timeclockApp">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ceylonese TimeClock</title>
+
+  <!-- Fonts (optional) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- AngularJS 1.8 -->
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0f1115; --panel:#151a22; --ink:#e7ebf2;
+      --muted:#94a3b8; --green:#22c55e; --red:#ef4444;
+      --brand:#0066D4; --brand-2:#003876; --border:#222834;
+      --accent:#eab308;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    a{color:#8ab5ff;text-decoration:none} a:hover{text-decoration:underline}
+    .container{max-width:1100px;margin-inline:auto;padding:22px}
+    header{position:sticky;top:0;z-index:10;background:rgba(15,17,21,.85);backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid var(--border)}
+    .row{display:flex;align-items:center;gap:12px}
+    .spacer{flex:1}
+    .h1{font-size:22px;font-weight:800;letter-spacing:.2px}
+    .pill{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:999px;padding:8px 12px;background:#0b0e14}
+    .pill .led{width:9px;height:9px;border-radius:99px;background:var(--red)}
+    .pill .led.green{background:var(--green)}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:#0b0e14;color:var(--ink);cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+    .btn.ghost{background:transparent}
+    .btn.danger{background:#2a1113;border-color:#3a1619}
+    .muted{color:var(--muted)}
+    .right{margin-left:auto}
+
+    .grid{display:grid;gap:18px}
+    @media(min-width:900px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+
+    .card{background:linear-gradient(180deg,#151a22,#0f141c);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.18)}
+    .card h2{margin:0 0 10px;font-size:18px}
+    .card h3{margin:0 0 8px;font-size:16px}
+
+    input,textarea{width:100%;background:#0b0e14;color:var(--ink);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font:inherit}
+    label{font-size:14px;color:var(--muted);display:block;margin-top:6px;margin-bottom:6px}
+
+    .table-scroll{overflow:auto;border:1px solid var(--border);border-radius:12px}
+    table{width:100%;border-collapse:collapse}
+    thead th{position:sticky;top:0;background:#0f141c;border-bottom:1px solid var(--border);text-align:left;padding:12px;font-size:13px;color:#c7d2fe}
+    tbody td{border-top:1px solid var(--border);padding:10px 12px;font-size:14px}
+    tbody tr:hover{background:#0c1119}
+
+    .center{display:grid;place-items:center;min-height:60vh}
+    [ng-cloak]{display:none !important}
+    .foot{border-top:1px solid var(--border);margin-top:30px;padding-top:14px;font-size:13px;color:var(--muted)}
+  </style>
+</head>
+<body ng-controller="RootCtrl as vm" ng-cloak>
+  <header>
+    <div class="container row">
+      <div class="h1">Ceylonese — TimeClock</div>
+      <div class="spacer"></div>
+      <span class="pill" ng-if="vm.ctx.user">
+        <span class="led" ng-class="{'green': vm.inShift}"></span>
+        <span>{{ vm.inShift ? 'In shift' : 'Not in shift' }}</span>
+      </span>
+      <button class="btn ghost" ng-if="vm.ctx.user" ng-click="vm.signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- AUTH -->
+    <section class="card" ng-if="!vm.ctx.user">
+      <h2>Sign in</h2>
+      <div class="grid cols-2">
+        <div>
+          <label>Email</label>
+          <input type="email" ng-model="vm.email" placeholder="you@company.com" required />
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="password" ng-model="vm.password" placeholder="••••••••" required />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" ng-disabled="vm.signingIn" ng-click="vm.signIn()">Sign in</button>
+        <span class="muted right">{{ vm.msg }}</span>
+      </div>
+    </section>
+
+    <!-- APP -->
+    <section ng-if="vm.ctx.user">
+      <div class="row" style="margin-bottom:12px">
+        <div><strong>User:</strong> {{ (vm.profile && vm.profile.full_name) || vm.ctx.user.email }}</div>
+        <div class="spacer"></div>
+        <div class="muted">Now: {{ vm.now }}</div>
+      </div>
+
+      <div class="grid cols-2">
+        <!-- CLOCK panel -->
+        <div class="card">
+          <h2>Clock</h2>
+          <div class="row" style="gap:10px">
+            <button class="btn primary" ng-disabled="vm.inShift" ng-click="vm.clock('in')">Clock In</button>
+            <button class="btn danger"  ng-disabled="!vm.inShift" ng-click="vm.clock('out')">Clock Out</button>
+            <span class="muted right">Status: {{ vm.inShift ? 'In shift' : 'Not in shift' }}</span>
+          </div>
+          <p class="muted" style="margin-top:8px">On clock out you can add an optional note (reason, task summary, etc.).</p>
+        </div>
+
+        <!-- ADMIN quick actions -->
+        <div class="card" ng-if="vm.profile && vm.profile.is_admin">
+          <div class="row">
+            <h2 style="margin:0">Admin — Tools</h2>
+            <button class="btn ghost right" ng-click="vm.export()">Export CSV</button>
+          </div>
+          <p class="muted">Exports the latest attendance view shown below.</p>
+        </div>
+      </div>
+
+      <!-- SHIFTS table -->
+      <div class="card" style="margin-top:16px">
+        <h2>Shift Records</h2>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Shift Date</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Hours</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-if="!vm.shifts.length">
+                <td colspan="5" class="muted">No shifts yet.</td>
+              </tr>
+              <tr ng-repeat="s in vm.shifts track by $index">
+                <td>{{ s.date }}</td>
+                <td>{{ s.in }}</td>
+                <td>{{ s.out }}</td>
+                <td>{{ s.hours }}</td>
+                <td>{{ s.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ADMIN attendance view -->
+      <div class="card" style="margin-top:16px" ng-if="vm.profile && vm.profile.is_admin">
+        <div class="row">
+          <h2 style="margin:0">Admin — Attendance</h2>
+        </div>
+        <div class="table-scroll" style="margin-top:10px">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr ng-if="!vm.adminRows.length">
+                <td colspan="4" class="muted">No records yet.</td>
+              </tr>
+              <tr ng-repeat="r in vm.adminRows track by r.id || $index">
+                <td>{{ r.created_at | date:'yyyy-MM-dd HH:mm:ss' }}</td>
+                <td>{{ r.full_name || r.email || r.user_id }}</td>
+                <td>{{ r.action | uppercase }}</td>
+                <td>{{ r.note }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="foot">
+        © {{ vm.year }} Ceylonese TimeClock
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (function(){
+    const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
+
+    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Optional: log auth events for debugging on hosted sites
+    supa.auth.onAuthStateChange((event, session) => {
+      console.log('[auth event]', event, session);
+    });
+
+    angular.module('timeclockApp', [])
+    .service('Supa', function($q){
+      // Wrap Supabase calls and reject on { error }
+      const wrap = p => $q((resolve, reject) => {
+        p.then(
+          (r) => {
+            if (r && typeof r === 'object' && 'error' in r && r.error) {
+              reject(r.error);
+            } else {
+              resolve(r);
+            }
+          },
+          (e) => reject(e)
+        );
+      });
+
+      this.getUser     = () => wrap(supa.auth.getUser());
+      this.signIn      = (email, password) => wrap(supa.auth.signInWithPassword({ email, password }));
+      this.signOut     = () => wrap(supa.auth.signOut());
+
+      this.getProfile  = (id) => wrap(
+        supa.from('profiles').select('id, full_name').eq('id', id).single()
+      );
+      this.insertPunch = (payload) => wrap(
+        supa.from('punches').insert(payload).select().single()
+      );
+      this.getPunchesForUser = (userId) => wrap(
+        supa.from('punches')
+            .select('id, created_at, action, note, user_id')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+      );
+      this.getAdminView = () => wrap(
+        supa.from('punches_view')
+            .select('id, created_at, action, note, user_id, email, full_name')
+            .order('created_at', { ascending: false })
+      );
+
+      this.subscribePunches = (cb) => {
+        const channel = supa.channel('punches-stream')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'punches' }, () => cb && cb())
+          .subscribe();
+        return channel;
+      };
+      this.unsubscribe = (channel) => { if (channel) supa.removeChannel(channel); };
+    })
+    .controller('RootCtrl', function($scope, $filter, Supa){
+      const vm = this;
+      vm.year = new Date().getFullYear();
+      vm.ctx = { user: null };
+      vm.profile = null;
+      vm.shifts = [];
+      vm.adminRows = [];
+      vm.inShift = false;
+      vm.msg = '';
+      vm.now = new Date().toLocaleString();
+      vm.signingIn = false;
+
+      const fmtDate = d => new Date(d).toLocaleDateString();
+      const fmtTime = d => new Date(d).toLocaleTimeString();
+      const diffHours = (a, b) => {
+        const ms = new Date(b) - new Date(a);
+        return ms > 0 ? (ms / 36e5).toFixed(2) : '-';
+      };
+
+      vm.refresh = async function(){
+        try{
+          const { data: { user } } = await Supa.getUser();
+          if(!user){
+            vm.ctx.user = null;
+            vm.profile = null;
+            vm.shifts = [];
+            vm.adminRows = [];
+            vm.inShift = false;
+            vm.now = new Date().toLocaleString();
+            $scope.$applyAsync();
+            return;
+          }
+          vm.ctx.user = user;
+
+          const { data: profile } = await Supa.getProfile(user.id);
+          vm.profile = profile || null;
+
+          await vm.loadShifts();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
+
+          vm.now = new Date().toLocaleString();
+          $scope.$applyAsync();
+        } catch (e){
+          console.error('refresh error:', e);
+          vm.msg = e.message || 'Failed to refresh';
+          $scope.$applyAsync();
+        }
+      };
+
+      vm.signIn = async function(){
+        vm.msg = 'Signing in…';
+        vm.signingIn = true;
+        try{
+          await Supa.signIn((vm.email||'').trim(), vm.password);
+          vm.msg = '';
+          await vm.refresh();
+        }catch(e){
+          console.error('signIn error:', e);
+          vm.msg = e.message || 'Sign in failed (check CORS / allowed origins in Supabase).';
+        }finally{
+          vm.signingIn = false;
+          $scope.$applyAsync();
+        }
+      };
+
+      vm.signOut = async function(){
+        await Supa.signOut();
+        vm.ctx.user = null;
+        vm.profile = null;
+        vm.shifts = [];
+        vm.adminRows = [];
+        vm.inShift = false;
+        $scope.$applyAsync();
+      };
+
+      vm.clock = async function(kind){
+        if(!vm.ctx.user) return;
+        try{
+          let note = null;
+          if(kind === 'out'){
+            const raw = window.prompt('Add a note for this shift (optional):', '');
+            note = (raw ?? '').trim() || null;
+          }
+          await Supa.insertPunch({ user_id: vm.ctx.user.id, action: kind, ...(note ? { note } : {}) });
+          await vm.loadShifts();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
+        }catch(e){
+          console.error('clock error:', e);
+          alert(e.message || 'Failed to record punch');
+        }
+      };
+
+      vm.loadShifts = async function(){
+        if(!vm.ctx.user) return;
+        const { data } = await Supa.getPunchesForUser(vm.ctx.user.id);
+        let list = [], currentIn = null;
+        (data || []).forEach(p => {
+          if (p.action === 'in') currentIn = p.created_at;
+          else if (p.action === 'out' && currentIn){
+            list.push({ date: fmtDate(currentIn), in: fmtTime(currentIn), out: fmtTime(p.created_at), hours: diffHours(currentIn, p.created_at), status: 'Pending' });
+            currentIn = null;
+          }
+        });
+        if (currentIn){
+          list.push({ date: fmtDate(currentIn), in: fmtTime(currentIn), out: '-', hours:'-', status:'Pending' });
+        }
+        vm.inShift = !!currentIn;
+        vm.shifts = list;
+        vm.now = new Date().toLocaleString();
+      };
+
+      vm.loadAdmin = async function(){
+        const { data } = await Supa.getAdminView();
+        vm.adminRows = data || [];
+      };
+
+      vm.export = function(){
+        const header = ['When','User','Action','Note'];
+        const lines = (vm.adminRows || []).map(r => [
+          new Date(r.created_at).toISOString(),
+          `"${((r.full_name || r.email || r.user_id) || '').replace(/"/g,'""')}"`,
+          (r.action || '').toUpperCase(),
+          `"${(r.note || '').replace(/"/g,'""')}"`
+        ].join(','));
+        const csv = [header.join(',')].concat(lines).join('\n');
+        const blob = new Blob([csv], {type:'text/csv'});
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        a.download = 'attendance.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      // Keep UI in sync if auth changes elsewhere
+      supa.auth.onAuthStateChange((_event, _session) => vm.refresh());
+
+      // Optional realtime subscription to punches
+      let rtChannel = null;
+      (async () => {
+        rtChannel = Supa.subscribePunches(async () => {
+          await vm.loadShifts();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
+          $scope.$applyAsync();
+        });
+      })();
+      window.addEventListener('beforeunload', () => { if (rtChannel) Supa.unsubscribe(rtChannel); });
+
+      vm.refresh();
+    });
+  })();
+  </script>
+</body>
+</html>
