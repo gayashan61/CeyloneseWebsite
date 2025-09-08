@@ -1,6 +1,31 @@
 // netlify/functions/create-staff.js
 import { createClient } from '@supabase/supabase-js';
 
+function json(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    body: JSON.stringify(body)
+  };
+}
+
+function generatePassword(len = 14) {
+  // 14 chars: upper/lower/digits/symbols
+  const U = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const L = 'abcdefghijkmnopqrstuvwxyz';
+  const D = '23456789';
+  const S = '!@#$%^&*()-_=+[]{}?';
+  const ALL = U + L + D + S;
+
+  // ensure complexity: at least 1 of each
+  const pick = (chars) => chars[Math.floor(Math.random() * chars.length)];
+  let pwd = pick(U) + pick(L) + pick(D) + pick(S);
+  for (let i = 4; i < len; i++) pwd += pick(ALL);
+
+  // shuffle
+  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Method not allowed' });
 
@@ -12,23 +37,21 @@ export const handler = async (event) => {
     full_name,
     role = 'staff',
     is_admin = false,
-    send_invite = true,
-    password // required if send_invite=false
+    // send_invite is ignored now (we always auto-confirm, no email flow)
+    password: providedPassword
   } = body;
 
   if (!email || !full_name) return json(400, { error: 'email and full_name are required' });
-  if (!send_invite && !password) return json(400, { error: 'password is required when send_invite is false' });
 
   const SUPABASE_URL  = process.env.SUPABASE_URL;
   const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY; // server-only!
   const ANON_KEY      = process.env.SUPABASE_ANON_KEY;         // used to verify caller token
-  const INVITE_REDIRECT_TO = process.env.INVITE_REDIRECT_TO;   // optional
 
   if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
     return json(500, { error: 'Missing env vars: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY' });
   }
 
-  // Validate caller is an admin using their Supabase JWT (from browser)
+  // Validate caller (must be signed-in admin), using their Supabase JWT
   const authHeader = event.headers.authorization || event.headers.Authorization;
   if (!authHeader) return json(401, { error: 'Missing Authorization header' });
 
@@ -49,26 +72,25 @@ export const handler = async (event) => {
   const { data: prof, error: profErr } = await admin
     .from('profiles').select('is_admin, role').eq('id', userRes.user.id).maybeSingle();
   if (profErr) return json(500, { error: 'Failed to read caller profile' });
+
   const callerIsAdmin = prof?.is_admin === true || String(prof?.role || '').toLowerCase() === 'admin';
   if (!callerIsAdmin) return json(403, { error: 'Forbidden: admin only' });
 
-  // Create auth user
+  // Always create with email_confirm: true (no emails at all)
+  const password = (typeof providedPassword === 'string' && providedPassword.trim().length >= 8)
+    ? providedPassword.trim()
+    : generatePassword(14);
+
   let createdUser;
   try {
-    if (send_invite) {
-      const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: INVITE_REDIRECT_TO
-      });
-      if (error) throw error;
-      createdUser = data.user;
-    } else {
-      const { data, error } = await admin.auth.admin.createUser({
-        email, password, email_confirm: true,
-        user_metadata: { full_name, role, is_admin }
-      });
-      if (error) throw error;
-      createdUser = data.user;
-    }
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name, role, is_admin }
+    });
+    if (error) throw error;
+    createdUser = data.user;
   } catch (e) {
     return json(400, { error: e?.message || 'Failed to create auth user' });
   }
@@ -83,13 +105,15 @@ export const handler = async (event) => {
     return json(400, { error: 'Auth user created, but profile upsert failed: ' + (e?.message || '') });
   }
 
-  return json(200, { ok: true, id: createdUser.id, email, full_name, role, is_admin, invited: !!send_invite });
+  // Return the password so the admin can share it securely with the staff member
+  return json(200, {
+    ok: true,
+    id: createdUser.id,
+    email,
+    full_name,
+    role,
+    is_admin,
+    invited: false,
+    password // ← temporary password for first login
+  });
 };
-
-function json(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-    body: JSON.stringify(body)
-  };
-}
