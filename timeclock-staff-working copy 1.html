@@ -18,20 +18,15 @@
     }
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
-
     a{color:var(--gold)}
-    /* Page layout: header + centered main area */
-    .page{min-height:100svh;display:flex;flex-direction:column}
-    .wrap{width:100%;max-width:1060px;margin:0 auto;padding:clamp(16px,3vw,24px)}
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:4px 0 8px}
-    main.center{flex:1;display:grid;place-items:center;padding:clamp(8px,2vw,20px)}
-
-    /* Cards & controls */
-    .card{width:100%;max-width:720px;margin-inline:auto;background:var(--panel);border:1px solid var(--border);
-      border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
+    .wrap{max-width:1000px;margin:0 auto;padding:clamp(16px,3vw,24px)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .pill{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted);max-width:100%}
     .right{margin-left:auto}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
+    .grid{display:grid;gap:18px}
+    @media(min-width:900px){.grid.cols-2{grid-template-columns:1.2fr .8fr}}
 
     input,button,select{font:inherit}
     input{width:100%;min-width:0;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#0c0f14;color:var(--ink)}
@@ -44,90 +39,67 @@
     .muted{color:var(--muted)}
     .hidden{display:none}
 
-    /* Table area */
-    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:420px;overflow-y:auto}
+    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:400px;overflow-y:auto}
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
     .table-scroll thead th{
-      position: sticky;
-      top: 0;
-      background: var(--panel);
-      z-index: 2;
-      box-shadow: 0 2px 0 0 #222b3a;
+      position: sticky; top: 0; background: var(--panel); z-index: 2; box-shadow: 0 2px 0 0 #222b3a;
     }
 
-    /* Clickable shift rows + note row styling */
     tr.shift-row{ cursor: pointer; }
     tr.shift-row:hover{ background:#101521; }
     .note-row td{ background:#0c0f14; color:var(--muted); }
 
-    /* Status LED */
     .led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
     .led.green{background:var(--green)}
     .led.red{background:#ef4444}
 
-    /* Mobile friendliness */
-    @media(max-width:700px){
+    @media(max-width:600px){
       header strong{font-size:16px}
       .row > *{flex:1 1 100%}
       button, input, select{width:100%}
       .pill{font-size:12px}
-      /* Stack table rows into cards on small screens */
-      table, thead, tbody, th, td, tr { display:block; }
-      thead tr{ position:absolute; top:-9999px; left:-9999px; }
-      tr.shift-row{ border:1px solid var(--border); border-radius:12px; margin:0 0 10px; padding:8px; }
-      tr.shift-row td{ border:none; border-bottom:1px solid #222b3a; padding:10px 12px 10px 44%; position:relative; }
-      tr.shift-row td:last-child{ border-bottom:none; }
-      tr.shift-row td::before{
-        content:attr(data-label);
-        position:absolute; left:12px; top:10px; width:40%; color:var(--muted); font-weight:600;
-        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      }
-      tr.note-row td{ padding:12px; }
-      .table-scroll{max-height:none}
-      table{min-width:0}
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="wrap">
-      <header>
-        <div class="row">
-          <strong style="font-size:18px">Ceylonese — TimeClock</strong>
-          <span class="pill">Beta</span>
-        </div>
-        <div class="row" style="min-width:220px">
-          <span id="who" class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"></span>
-          <button id="btnSignOut" class="ghost hidden">Sign out</button>
-        </div>
-      </header>
-    </div>
+  <div class="wrap">
+    <header>
+      <div class="row">
+        <strong style="font-size:18px">Ceylonese — TimeClock</strong>
+        <span class="pill">Beta</span>
+      </div>
+      <div class="row" style="min-width:220px">
+        <span id="who" class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%"></span>
+        <button id="btnSignOut" class="ghost hidden">Sign out</button>
+      </div>
+    </header>
 
-    <main class="center">
-      <div class="wrap">
-        <!-- AUTH (sign-in only) -->
-        <section id="authCard" class="card">
-          <h2 style="margin-top:0">Sign in</h2>
-          <div class="row">
-            <div style="flex:1 1 260px; min-width:220px">
-              <label>Email</label>
-              <input id="email" type="email" placeholder="me@example.com" />
-            </div>
-            <div style="flex:1 1 200px; min-width:220px">
-              <label>Password</label>
-              <input id="password" type="password" placeholder="••••••••" />
-            </div>
-          </div>
-          <div class="row" style="margin-top:12px">
-            <button id="btnSignIn" class="primary">Sign in</button>
-            <span id="authMsg" class="muted"></span>
-          </div>
-        </section>
+    <!-- AUTH (sign-in only) -->
+    <section id="authCard" class="card">
+      <h2 style="margin-top:0">Sign in</h2>
+      <div class="grid">
+        <div>
+          <label>Email</label>
+          <input id="email" type="email" placeholder="me@example.com" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btnSignIn" class="primary">Sign in</button>
+        <span id="authMsg" class="muted"></span>
+      </div>
+    </section>
 
-        <!-- APP (staff only) -->
-        <section id="app" class="card hidden">
+    <!-- APP -->
+    <section id="app" class="hidden">
+      <div class="grid cols-2">
+        <!-- STAFF PANEL -->
+        <div class="card">
           <div class="row">
             <h2 style="margin:0">My Shifts</h2>
             <span id="statusPill" class="pill right">
@@ -135,13 +107,11 @@
               <span id="statusTxt">Not in shift</span>
             </span>
           </div>
-
           <div class="row" style="margin-top:10px">
             <button id="btnClockIn" class="primary">Clock In</button>
             <button id="btnClockOut" class="danger">Clock Out</button>
             <span class="muted right" id="now" style="white-space:nowrap"></span>
           </div>
-
           <h3 style="margin-top:16px">Shift Records</h3>
           <div class="table-scroll">
             <table>
@@ -157,9 +127,23 @@
               <tbody id="shiftBody"><tr><td colspan="5" class="muted">No shifts yet.</td></tr></tbody>
             </table>
           </div>
-        </section>
+        </div>
+
+        <!-- ADMIN PANEL -->
+        <div id="adminCard" class="card hidden">
+          <div class="row">
+            <h2 style="margin:0">Admin — Attendance</h2>
+            <button id="btnExport" class="ghost right">Export CSV</button>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>When</th><th>User</th><th>Action</th><th>Note</th></tr></thead>
+              <tbody id="adminBody"><tr><td colspan="4" class="muted">No records yet.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </main>
+    </section>
   </div>
 
   <script>
@@ -195,6 +179,7 @@
         app.classList.remove("hidden");
         signOut.classList.remove("hidden");
         loadShifts();
+        loadAdmin();
       } else {
         who.textContent = "";
         auth.classList.remove("hidden");
@@ -206,6 +191,7 @@
     function showSignInUI(){
       $("authCard").classList.remove("hidden");
       $("app").classList.add("hidden");
+      $("adminCard").classList.add("hidden");
       $("btnSignOut").classList.add("hidden");
       $("who").textContent = "";
       if (window.updateButtons) updateButtons(false);
@@ -220,7 +206,7 @@
       msg.textContent = "";
 
       try {
-        const { error } = await supa.auth.signInWithPassword({ email, password });
+        const { data, error } = await supa.auth.signInWithPassword({ email, password });
         if (error) { msg.textContent = error.message; return; }
 
         // Immediately flip UI without waiting for listener
@@ -288,21 +274,23 @@
       // 3) Fire-and-forget global revoke (no await)
       tryGlobalSignOutNonBlocking();
 
-      // 4) Flip UI and reload
+      // 4) Flip UI and reload (ensure paint then reload)
       try {
         setAuthUI(null, null);
         showSignInUI();
       } catch(_) {}
+      // Let the UI paint once, then reload to cold state
       requestAnimationFrame(() => hardReload());
     }
 
     // ===== Auth: Sign out (uses safe, non-blocking flow) =====
     $("btnSignOut").onclick = () => {
       $("btnSignOut").disabled = true; // avoid double-clicks
-      signOutSafely(); // DO NOT await
+      // DO NOT make this handler async; do not await anything here
+      signOutSafely();
     };
 
-    // ===== App actions (staff only) =====
+    // ===== App actions =====
     btnClockIn.onclick  = async () => addPunch("in");
     btnClockOut.onclick = async () => {
       const raw = prompt("Add a note for this shift (optional):", "");
@@ -398,18 +386,18 @@
       // set button states
       updateButtons(inShift);
 
-      // render rows + note toggles (add data-labels for mobile cards)
+      // render rows + note toggles
       const body = $("shiftBody");
       if (!shifts.length){
         body.innerHTML = `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
       } else {
         body.innerHTML = shifts.map((s,i)=>`
           <tr class="shift-row" data-idx="${i}" tabindex="0" aria-expanded="false">
-            <td data-label="Date">${s.date}</td>
-            <td data-label="Clock In">${s.in}</td>
-            <td data-label="Clock Out">${s.out}</td>
-            <td data-label="Hours">${s.hours}</td>
-            <td data-label="Status">${s.status}</td>
+            <td>${s.date}</td>
+            <td>${s.in}</td>
+            <td>${s.out}</td>
+            <td>${s.hours}</td>
+            <td>${s.status}</td>
           </tr>
           <tr class="note-row hidden" aria-hidden="true">
             <td colspan="5"><strong>Note:</strong> ${s.note ? escapeHtml(s.note) : "<em>None</em>"}</td>
@@ -433,6 +421,40 @@
         e.preventDefault();
         row.click();
       };
+    }
+
+    async function loadAdmin(){
+      const { data } = await supa
+        .from("punches_view")
+        .select("*")
+        .order("created_at", { ascending: false });
+      const body = $("adminBody");
+      body.innerHTML = (data && data.length)
+        ? data.map(r => `<tr>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td>${r.full_name || r.email || r.user_id}</td>
+            <td>${r.action.toUpperCase()}</td>
+            <td>${r.note ? r.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ""}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="4" class="muted">No records yet.</td></tr>`;
+      $("btnExport").onclick = () => exportCSV(data || []);
+    }
+
+    function exportCSV(rows){
+      const header = ["When","User","Action","Note"];
+      const csv = [header.join(",")].concat(
+        rows.map(r => [
+          new Date(r.created_at).toISOString(),
+          `"${(r.full_name || r.email || r.user_id).replace(/"/g,'""')}"`,
+          r.action,
+          `"${(r.note ?? "").replace(/"/g,'""')}"`
+        ].join(","))
+      ).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "attendance-today.csv"; a.click();
+      URL.revokeObjectURL(url);
     }
 
     // ===== Boot =====
