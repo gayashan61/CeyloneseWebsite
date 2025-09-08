@@ -89,7 +89,7 @@
         </div>
       </div>
       <div class="row" style="margin-top:12px">
-        <button class="btn primary" ng-click="vm.signIn()">Sign in</button>
+        <button class="btn primary" ng-disabled="vm.signingIn" ng-click="vm.signIn()">Sign in</button>
         <span class="muted right">{{ vm.msg }}</span>
       </div>
     </section>
@@ -192,28 +192,39 @@
 
   <script>
   (function(){
-    // ====== 1) Supabase credentials ======
     const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
-    // =====================================
 
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // Optional: log auth events for debugging on hosted sites
+    supa.auth.onAuthStateChange((event, session) => {
+      console.log('[auth event]', event, session);
+    });
+
     angular.module('timeclockApp', [])
     .service('Supa', function($q){
-      const wrap = p => $q((res, rej) => p.then(res, rej));
+      // Wrap Supabase calls and reject on { error }
+      const wrap = p => $q((resolve, reject) => {
+        p.then(
+          (r) => {
+            if (r && typeof r === 'object' && 'error' in r && r.error) {
+              reject(r.error);
+            } else {
+              resolve(r);
+            }
+          },
+          (e) => reject(e)
+        );
+      });
+
       this.getUser     = () => wrap(supa.auth.getUser());
       this.signIn      = (email, password) => wrap(supa.auth.signInWithPassword({ email, password }));
       this.signOut     = () => wrap(supa.auth.signOut());
 
-      // Keep profile select minimal-safe; add columns later once confirmed
       this.getProfile  = (id) => wrap(
-        supa.from('profiles')
-            .select('id, full_name')   // <-- safe minimal set
-            .eq('id', id)
-            .single()
+        supa.from('profiles').select('id, full_name').eq('id', id).single()
       );
-
       this.insertPunch = (payload) => wrap(
         supa.from('punches').insert(payload).select().single()
       );
@@ -231,9 +242,7 @@
 
       this.subscribePunches = (cb) => {
         const channel = supa.channel('punches-stream')
-          .on('postgres_changes',
-              { event: '*', schema: 'public', table: 'punches' },
-              () => cb && cb())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'punches' }, () => cb && cb())
           .subscribe();
         return channel;
       };
@@ -241,15 +250,15 @@
     })
     .controller('RootCtrl', function($scope, $filter, Supa){
       const vm = this;
-
-      vm.year     = new Date().getFullYear();   // footer year
-      vm.ctx      = { user: null };
-      vm.profile  = null;
-      vm.shifts   = [];
-      vm.adminRows= [];
-      vm.inShift  = false;
-      vm.msg      = '';
-      vm.now      = new Date().toLocaleString();
+      vm.year = new Date().getFullYear();
+      vm.ctx = { user: null };
+      vm.profile = null;
+      vm.shifts = [];
+      vm.adminRows = [];
+      vm.inShift = false;
+      vm.msg = '';
+      vm.now = new Date().toLocaleString();
+      vm.signingIn = false;
 
       const fmtDate = d => new Date(d).toLocaleDateString();
       const fmtTime = d => new Date(d).toLocaleTimeString();
@@ -260,9 +269,7 @@
 
       vm.refresh = async function(){
         try{
-          const { data: { user }, error: uErr } = await Supa.getUser();
-          if (uErr) console.warn('getUser error:', uErr);
-
+          const { data: { user } } = await Supa.getUser();
           if(!user){
             vm.ctx.user = null;
             vm.profile = null;
@@ -275,8 +282,7 @@
           }
           vm.ctx.user = user;
 
-          const { data: profile, error: pErr } = await Supa.getProfile(user.id);
-          if (pErr) console.warn('profiles select error:', pErr);
+          const { data: profile } = await Supa.getProfile(user.id);
           vm.profile = profile || null;
 
           await vm.loadShifts();
@@ -285,7 +291,7 @@
           vm.now = new Date().toLocaleString();
           $scope.$applyAsync();
         } catch (e){
-          console.error(e);
+          console.error('refresh error:', e);
           vm.msg = e.message || 'Failed to refresh';
           $scope.$applyAsync();
         }
@@ -293,14 +299,18 @@
 
       vm.signIn = async function(){
         vm.msg = 'Signing in…';
+        vm.signingIn = true;
         try{
           await Supa.signIn((vm.email||'').trim(), vm.password);
           vm.msg = '';
           await vm.refresh();
         }catch(e){
-          vm.msg = e.message || 'Sign in failed';
+          console.error('signIn error:', e);
+          vm.msg = e.message || 'Sign in failed (check CORS / allowed origins in Supabase).';
+        }finally{
+          vm.signingIn = false;
+          $scope.$applyAsync();
         }
-        $scope.$applyAsync();
       };
 
       vm.signOut = async function(){
@@ -325,6 +335,7 @@
           await vm.loadShifts();
           if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
         }catch(e){
+          console.error('clock error:', e);
           alert(e.message || 'Failed to record punch');
         }
       };
@@ -333,28 +344,15 @@
         if(!vm.ctx.user) return;
         const { data } = await Supa.getPunchesForUser(vm.ctx.user.id);
         let list = [], currentIn = null;
-
         (data || []).forEach(p => {
           if (p.action === 'in') currentIn = p.created_at;
           else if (p.action === 'out' && currentIn){
-            list.push({
-              date: fmtDate(currentIn),
-              in:   fmtTime(currentIn),
-              out:  fmtTime(p.created_at),
-              hours: diffHours(currentIn, p.created_at),
-              status: 'Pending'
-            });
+            list.push({ date: fmtDate(currentIn), in: fmtTime(currentIn), out: fmtTime(p.created_at), hours: diffHours(currentIn, p.created_at), status: 'Pending' });
             currentIn = null;
           }
         });
         if (currentIn){
-          list.push({
-            date: fmtDate(currentIn),
-            in:   fmtTime(currentIn),
-            out:  '-',
-            hours:'-',
-            status:'Pending'
-          });
+          list.push({ date: fmtDate(currentIn), in: fmtTime(currentIn), out: '-', hours:'-', status:'Pending' });
         }
         vm.inShift = !!currentIn;
         vm.shifts = list;
@@ -378,12 +376,18 @@
         const blob = new Blob([csv], {type:'text/csv'});
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
-        a.href = url; a.download = 'attendance.csv'; a.click();
+        a.href = url;
+        a.download = 'attendance.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
       };
 
+      // Keep UI in sync if auth changes elsewhere
       supa.auth.onAuthStateChange((_event, _session) => vm.refresh());
 
+      // Optional realtime subscription to punches
       let rtChannel = null;
       (async () => {
         rtChannel = Supa.subscribePunches(async () => {
@@ -392,10 +396,7 @@
           $scope.$applyAsync();
         });
       })();
-
-      window.addEventListener('beforeunload', () => {
-        if (rtChannel) Supa.unsubscribe(rtChannel);
-      });
+      window.addEventListener('beforeunload', () => { if (rtChannel) Supa.unsubscribe(rtChannel); });
 
       vm.refresh();
     });
