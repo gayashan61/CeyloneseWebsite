@@ -201,9 +201,19 @@
     };
 
     $("btnSignOut").onclick = async () => {
+     
+     
+	  try {
+	   const app = $("app");
       await supa.auth.signOut();
-      const app = $("app");
+	  
       app.classList.add("hidden");
+    } catch (e) {
+      console.warn("Sign-out error:", e);
+    } finally {
+      // Instantly show Sign in and hide the logged-in app UI
+      setAuthUI(null, null);
+    }
     };
 
     btnClockIn.onclick  = async () => addPunch("in");
