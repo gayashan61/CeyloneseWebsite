@@ -115,7 +115,7 @@
         </div>
 
         <!-- ADMIN quick actions -->
-        <div class="card" ng-if="vm.profile?.is_admin">
+        <div class="card" ng-if="vm.profile && vm.profile.is_admin">
           <div class="row">
             <h2 style="margin:0">Admin — Tools</h2>
             <button class="btn ghost right" ng-click="vm.export()">Export CSV</button>
@@ -155,7 +155,7 @@
       </div>
 
       <!-- ADMIN attendance view -->
-      <div class="card" style="margin-top:16px" ng-if="vm.profile?.is_admin">
+      <div class="card" style="margin-top:16px" ng-if="vm.profile && vm.profile.is_admin">
         <div class="row">
           <h2 style="margin:0">Admin — Attendance</h2>
         </div>
@@ -278,7 +278,7 @@
           vm.profile = profile || null;
 
           await vm.loadShifts();
-          if (vm.profile?.is_admin) await vm.loadAdmin();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
 
           vm.now = new Date().toLocaleString();
           $scope.$applyAsync();
@@ -320,7 +320,7 @@
           }
           await Supa.insertPunch({ user_id: vm.ctx.user.id, action: kind, ...(note ? { note } : {}) });
           await vm.loadShifts();
-          if(vm.profile?.is_admin) await vm.loadAdmin();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
         }catch(e){
           alert(e.message || 'Failed to record punch');
         }
@@ -389,7 +389,7 @@
       (async () => {
         rtChannel = Supa.subscribePunches(async () => {
           await vm.loadShifts();
-          if(vm.profile?.is_admin) await vm.loadAdmin();
+          if (vm.profile && vm.profile.is_admin) await vm.loadAdmin();
           $scope.$applyAsync();
         });
       })();
