@@ -39,10 +39,7 @@
     button:disabled{opacity:.55;cursor:not-allowed}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
     .field{min-width:180px}
-    .banner{background:#2c2210;border:1px solid #3b2d12;color:#fef3c7;padding:10px 12px;border-radius:10px;margin:10px 0}
     .table-scroll{position:relative;width:100%;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:60vh;border-radius:12px}
-    .table-scroll::after{content:"Swipe to scroll →";position:absolute;right:8px;bottom:6px;font-size:12px;color:var(--muted);pointer-events:none;opacity:0}
-    @media(max-width:760px){.table-scroll::after{opacity:.9}}
     table{width:100%;border-collapse:collapse;min-width:900px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:middle}
     th{text-align:left;color:#cbd5e1;font-weight:700}
@@ -96,14 +93,6 @@
           </div>
         </div>
         <div class="row" style="margin-top:8px">
-          <label class="muted" style="display:flex;gap:8px;align-items:center">
-            <input id="cs_use_password" type="checkbox" />
-            Set a temporary password (otherwise an invite email is sent)
-          </label>
-          <div id="cs_pw_field" class="field hidden" style="flex:1 1 220px; min-width:220px">
-            <label>Temporary password</label>
-            <input id="cs_password" type="text" autocomplete="new-password" placeholder="e.g. Temp#12345" />
-          </div>
           <div class="right" style="display:flex;gap:10px;align-items:center">
             <button id="cs_create" class="primary">Create Staff</button>
             <span id="cs_msg" class="muted"></span>
@@ -129,11 +118,6 @@
           <span id="loadMsg" class="muted right"></span>
         </div>
 
-        <div id="approvalsBanner" class="banner hidden">
-          Approvals table not found. You can still view/export shifts, but Approve/Reject will fail until you create
-          <code>shift_approvals</code>.
-        </div>
-
         <div class="table-scroll">
           <table>
             <thead>
@@ -157,158 +141,64 @@
   </div>
 
   <script>
-    // ===== Supabase init (public anon key is OK on client) =====
+    // ===== Supabase init (client) =====
     const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ===== Helpers =====
     const $ = (id) => document.getElementById(id);
-    const fmtDate = (d) => new Date(d).toLocaleDateString();
-    const fmtTime = (d) => new Date(d).toLocaleTimeString();
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const toISOStart = (dStr) => new Date(dStr + "T00:00:00").toISOString();
     const toISOEnd   = (dStr) => new Date(dStr + "T23:59:59.999").toISOString();
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    // ===== Auth guard & role check =====
     async function getProfile(){
       const { data: { user } } = await supa.auth.getUser();
       if (!user) return { user:null, profile:null };
       const { data: profile } = await supa.from("profiles").select("*").eq("id", user.id).maybeSingle();
       return { user, profile };
     }
-    function isAdmin(profile){
-      return profile?.is_admin === true || String(profile?.role||"").toLowerCase() === "admin";
-    }
+    const isAdmin = (p) => p?.is_admin === true || String(p?.role||"").toLowerCase() === "admin";
 
-    // ===== Non-blocking sign-out =====
-    function nukeSupabaseStorage(){
-      try { Object.keys(localStorage).forEach(k => { if (k.startsWith("sb-")) localStorage.removeItem(k); }); sessionStorage.clear?.(); } catch(_){}
-    }
-    function tryGlobalSignOutNonBlocking(timeoutMs = 1200){
-      try { const p = supa.auth.signOut({ scope: "global" }); Promise.race([p, sleep(timeoutMs)]).catch(()=>{}); } catch(_){}
-    }
-    function hardReload(delayMs = 50){
-      setTimeout(() => {
-        try { window.location.reload(); return; } catch(e){}
-        try { window.top.location.reload(); return; } catch(e){}
-        try {
-          const base = window.location.href.split("#")[0];
-          const sep  = base.includes("?") ? "&" : "?";
-          window.location.href = `${base}${sep}_r=${Date.now()}`;
-          return;
-        } catch(e){}
-        try { history.go(0); } catch(e){}
-      }, delayMs);
-    }
-    function signOutSafely(){
-      try { supa.auth.signOut({ scope: "local" }).catch(()=>{}); } catch(_){}
-      nukeSupabaseStorage(); tryGlobalSignOutNonBlocking(); requestAnimationFrame(()=>hardReload());
-    }
+    // ===== Sign out (non-blocking) =====
+    function nukeSupabaseStorage(){ try { Object.keys(localStorage).forEach(k=>{ if(k.startsWith("sb-")) localStorage.removeItem(k); }); sessionStorage.clear?.(); } catch(_){} }
+    function tryGlobalSignOutNonBlocking(t=1200){ try{ const p=supa.auth.signOut({scope:"global"}); Promise.race([p,sleep(t)]).catch(()=>{});}catch(_){} }
+    function hardReload(d=50){ setTimeout(()=>{ try{location.reload();return;}catch(e){} try{top.location.reload();return;}catch(e){} try{const b=location.href.split("#")[0];const s=b.includes("?")?"&":"?";location.href=`${b}${s}_r=${Date.now()}`;return;}catch(e){} try{history.go(0);}catch(e){} },d); }
+    function signOutSafely(){ try{supa.auth.signOut({scope:"local"}).catch(()=>{});}catch(_){} nukeSupabaseStorage(); tryGlobalSignOutNonBlocking(); requestAnimationFrame(()=>hardReload()); }
     $("btnSignOut").onclick = () => { $("btnSignOut").disabled = true; signOutSafely(); };
 
-    // ===== Shifts build/display =====
+    // ===== Shifts (from view) =====
     let CURRENT_SHIFTS = [];
-    async function fetchPunches(fromISO, toISO){
+
+    async function fetchShifts(fromISO, toISO){
       const { data, error } = await supa
-        .from("punches_view")
+        .from("shifts_view")
         .select("*")
-        .gte("created_at", fromISO)
-        .lte("created_at", toISO)
+        .gte("in_time", fromISO)
+        .lte("out_time", toISO)
         .order("user_id", { ascending: true })
-        .order("created_at", { ascending: true });
-      if (error) throw error;
+        .order("in_time", { ascending: true });
+      if (error) { console.error("fetchShifts error:", error); throw error; }
       return data || [];
     }
-    async function fetchApprovals(fromISO, toISO){
-      try{
-        const { data, error } = await supa
-          .from("shift_approvals")
-          .select("*")
-          .gte("in_time", fromISO)
-          .lte("out_time", toISO);
-        if (error) throw error;
-        $("approvalsBanner").classList.add("hidden");
-        return data || [];
-      }catch(e){
-        $("approvalsBanner").classList.remove("hidden");
-        return [];
-      }
-    }
-    function calcHours(inTime, outTime){
-      const diff = new Date(outTime) - new Date(inTime);
-      return diff > 0 ? (diff/1000/60/60).toFixed(2) : "0.00";
-    }
-    function buildShiftsForAll(punchRows, approvals){
-      const apprMap = new Map();
-      for (const a of approvals){
-        const k = `${a.user_id}|${new Date(a.in_time).toISOString()}|${new Date(a.out_time).toISOString()}`;
-        apprMap.set(k, a.status);
-      }
-      const byUser = new Map();
-      for (const p of punchRows){
-        if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
-        byUser.get(p.user_id).push(p);
-      }
-      const shifts = [];
-      for (const [uid, rows] of byUser){
-        let currentIn = null;
-        let meta = { name: rows[0]?.full_name || "", email: rows[0]?.email || "" };
-        for (const r of rows){
-          if (r.action === "in"){
-            currentIn = r.created_at;
-          } else if (r.action === "out" && currentIn){
-            const inT  = currentIn;
-            const outT = r.created_at;
-            const key = `${uid}|${new Date(inT).toISOString()}|${new Date(outT).toISOString()}`;
-            shifts.push({
-              user_id: uid,
-              user_name: meta.name || meta.email || uid,
-              user_email: meta.email,
-              in: inT,
-              out: outT,
-              hours: calcHours(inT, outT),
-              status: apprMap.get(key) || "pending",
-              note: r.note || ""
-            });
-            currentIn = null;
-          }
-        }
-      }
-      return shifts;
-    }
-    function escapeHtml(s){ return (s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+
     async function setApproval(shift, status){
       try{
-        const { data: { user: admin } } = await supa.auth.getUser();
-        if (!admin) { alert("Not signed in"); return; }
-        const inISO  = new Date(shift.in).toISOString();
-        const outISO = new Date(shift.out).toISOString();
-        const { data: existing } = await supa
-          .from("shift_approvals")
-          .select("id")
-          .eq("user_id", shift.user_id)
-          .eq("in_time", inISO)
-          .eq("out_time", outISO)
-          .limit(1)
-          .maybeSingle();
-        if (existing?.id){
-          const { error: upErr } = await supa
-            .from("shift_approvals")
-            .update({ status, hours: shift.hours, approved_by: admin.id, approved_at: new Date().toISOString() })
-            .eq("id", existing.id);
-          if (upErr) throw upErr;
-        } else {
-          const { error: insErr } = await supa
-            .from("shift_approvals")
-            .insert({ user_id: shift.user_id, in_time: inISO, out_time: outISO, hours: shift.hours, status, approved_by: admin.id });
-          if (insErr) throw insErr;
-        }
-        shift.status = status; renderShifts();
+        // Update the OUT row’s status
+        const { error } = await supa
+          .from("punches")
+          .update({ status })
+          .eq("id", shift.punch_out_id);
+        if (error) throw error;
+
+        shift.status = status;
+        renderShifts();
       }catch(e){
-        console.warn(e); alert("Approvals not available yet. Create the 'shift_approvals' table.");
+        console.error(e);
+        alert("Failed to update status (check RLS).");
       }
     }
+
     function renderShifts(){
       const body = $("adminBody");
       if (!CURRENT_SHIFTS.length){
@@ -317,12 +207,12 @@
       }
       body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
         <tr data-idx="${i}">
-          <td>${fmtDate(s.in)} <span class="muted">(${new Date(s.in).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
-          <td>${escapeHtml(s.user_name)}</td>
-          <td>${fmtTime(s.in)}</td>
-          <td>${fmtTime(s.out)}</td>
-          <td>${s.hours}</td>
-          <td><span class="status ${s.status}">${s.status[0].toUpperCase()+s.status.slice(1)}</span></td>
+          <td>${new Date(s.in_time).toLocaleDateString()} <span class="muted">(${new Date(s.in_time).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
+          <td>${(s.full_name || s.email || s.user_id)}</td>
+          <td>${new Date(s.in_time).toLocaleTimeString()}</td>
+          <td>${new Date(s.out_time).toLocaleTimeString()}</td>
+          <td>${Number(s.hours).toFixed(2)}</td>
+          <td><span class="status ${s.status}">${(s.status||'pending').replace(/^./,c=>c.toUpperCase())}</span></td>
           <td>
             <div style="display:flex;gap:8px">
               <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
@@ -330,8 +220,8 @@
             </div>
           </td>
         </tr>
-        <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + escapeHtml(s.note)) : ''}</td></tr>
-      `).join("");
+        <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + String(s.note).replace(/</g,'&lt;').replace(/>/g,'&gt;')) : ''}</td></tr>
+      ").join("");
       body.onclick = async (e)=>{
         const btn = e.target.closest("button[data-action]"); if (!btn) return;
         const row = btn.closest("tr[data-idx]"); if (!row) return;
@@ -340,17 +230,18 @@
         await setApproval(shift, status);
       };
     }
+
     function exportCSV(){
       if (!CURRENT_SHIFTS.length){ alert("Nothing to export"); return; }
       const header = ["Date","User","Clock In","Clock Out","Hours","Status","Note"];
       const csv = [header.join(",")].concat(
         CURRENT_SHIFTS.map(s => [
-          new Date(s.in).toISOString(),
-          `"${(s.user_name||"").replace(/"/g,'""')}"`,
-          new Date(s.in).toLocaleTimeString(),
-          new Date(s.out).toLocaleTimeString(),
-          s.hours,
-          s.status.toUpperCase(),
+          new Date(s.in_time).toISOString(),
+          `"${(s.full_name || s.email || s.user_id).replace(/"/g,'""')}"`,
+          new Date(s.in_time).toLocaleTimeString(),
+          new Date(s.out_time).toLocaleTimeString(),
+          Number(s.hours).toFixed(2),
+          (s.status || 'pending').toUpperCase(),
           `"${(s.note||"").replace(/"/g,'""')}"`
         ].join(","))
       ).join("\n");
@@ -360,68 +251,42 @@
       URL.revokeObjectURL(url);
     }
 
-   // ===== Create Staff (calls serverless function; no emails, auto-confirm) =====
-(function wireCreateStaff(){
-  const btn = document.getElementById("cs_create");
-  const msg = document.getElementById("cs_msg");
+    // ===== Create Staff (uses your Netlify function, auto-confirm flow) =====
+    (function wireCreateStaff(){
+      const btn = $("cs_create"), msg = $("cs_msg");
+      btn.onclick = async () => {
+        const full_name = $("cs_fullname").value.trim();
+        const email = $("cs_email").value.trim();
+        const is_admin = $("cs_is_admin").checked;
+        msg.textContent = "";
+        if (!full_name || !email){ msg.textContent = "Full name and email are required."; return; }
+        const { data: { session } } = await supa.auth.getSession();
+        const accessToken = session?.access_token;
+        if (!accessToken){ msg.textContent = "Not signed in."; return; }
 
-  // (Optional) if you kept the old checkbox fields, you can hide them now:
-  const usePw = document.getElementById("cs_use_password");
-  const pwFieldWrap = document.getElementById("cs_pw_field");
-  if (usePw) usePw.parentElement.classList.add("hidden");
-  if (pwFieldWrap) pwFieldWrap.classList.add("hidden");
+        btn.disabled = true; msg.textContent = "Creating…";
+        try{
+          const res = await fetch('/.netlify/functions/create-staff', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${accessToken}` },
+            body: JSON.stringify({ email, full_name, role: is_admin?'admin':'staff', is_admin })
+          });
+          const j = await res.json().catch(()=> ({}));
+          if (!res.ok){ msg.textContent = j.error || "Failed to create staff."; return; }
+          const creds = `Email: ${email}\nTemp password: ${j.password}`;
+          try { await navigator.clipboard.writeText(creds); } catch(_){}
+          msg.textContent = "Staff created ✔  (temp password copied)";
+          alert(`Staff created.\n\n${creds}\n\nShare securely with the staff member.`);
+          $("cs_fullname").value = ""; $("cs_email").value = ""; $("cs_is_admin").checked = false;
+        }catch(e){
+          console.warn(e); msg.textContent = "Network error.";
+        }finally{
+          btn.disabled = false;
+        }
+      };
+    })();
 
-  btn.onclick = async () => {
-    const full_name = document.getElementById("cs_fullname").value.trim();
-    const email = document.getElementById("cs_email").value.trim();
-    const is_admin = document.getElementById("cs_is_admin").checked;
-    // Optional: allow admin to type a custom password if you keep a field
-    const customPwEl = document.getElementById("cs_password");
-    const password = customPwEl?.value?.trim() || undefined;
-
-    msg.textContent = "";
-    if (!full_name || !email){ msg.textContent = "Full name and email are required."; return; }
-
-    const { data: { session } } = await supa.auth.getSession();
-    const accessToken = session?.access_token;
-    if (!accessToken){ msg.textContent = "Not signed in."; return; }
-
-    btn.disabled = true; msg.textContent = "Creating…";
-    try{
-      const res = await fetch('/.netlify/functions/create-staff', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          email,
-          full_name,
-          role: is_admin ? 'admin' : 'staff',
-          is_admin,
-          password // optional; if omitted the function will auto-generate
-        })
-      });
-      const j = await res.json().catch(()=> ({}));
-      if (!res.ok){ msg.textContent = j.error || "Failed to create staff."; return; }
-
-      // Show the temp password and copy it for the admin
-      const creds = `Email: ${email}\nTemp password: ${j.password}`;
-      try { await navigator.clipboard.writeText(creds); } catch(_){}
-      msg.textContent = "Staff created ✔  (temp password copied)";
-      alert(`Staff created.\n\n${creds}\n\nShare securely with the staff member.`);
-
-      // Clear form
-      document.getElementById("cs_fullname").value = "";
-      document.getElementById("cs_email").value = "";
-      document.getElementById("cs_is_admin").checked = false;
-      if (customPwEl) customPwEl.value = "";
-    }catch(e){
-      console.warn(e); msg.textContent = "Network error.";
-    }finally{
-      btn.disabled = false;
-    }
-  };
-})();
-
-    // ===== Filter/load =====
+    // ===== Filters / boot =====
     function setDefaultDates(){
       const today = new Date(); today.setHours(0,0,0,0);
       const dTo = today.toISOString().slice(0,10);
@@ -429,23 +294,23 @@
       const dFrom = from.toISOString().slice(0,10);
       $("fromDate").value = dFrom; $("toDate").value = dTo;
     }
+
     async function loadRange(){
       const from = $("fromDate").value, to = $("toDate").value;
       if (!from || !to){ alert("Please select From and To dates"); return; }
       $("loadMsg").textContent = "Loading…";
       const fromISO = toISOStart(from), toISO = toISOEnd(to);
       try{
-        const [punches, approvals] = await Promise.all([fetchPunches(fromISO, toISO), fetchApprovals(fromISO, toISO)]);
-        CURRENT_SHIFTS = buildShiftsForAll(punches, approvals).filter(s => s.in && s.out);
+        CURRENT_SHIFTS = await fetchShifts(fromISO, toISO);
         renderShifts();
       }catch(e){
-        console.error(e); $("adminBody").innerHTML = `<tr><td colspan="7" class="muted">Failed to load shifts.</td></tr>`;
+        console.error(e);
+        $("adminBody").innerHTML = `<tr><td colspan="7" class="muted">Failed to load shifts.</td></tr>`;
       }finally{
         $("loadMsg").textContent = "";
       }
     }
 
-    // ===== Boot =====
     (async () => {
       const ctx = await getProfile();
       if (!ctx.user){ window.location.replace("./"); return; }
