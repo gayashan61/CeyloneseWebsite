@@ -22,7 +22,8 @@
     .wrap{max-width:1000px;margin:0 auto;padding:clamp(16px,3vw,24px)}
     header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;background:#0c0f14;border:1px solid var(--border);color:var(--muted);max-width:100%}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted);max-width:100%}
+    .right{margin-left:auto}
     .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
     .grid{display:grid;gap:18px}
     @media(min-width:900px){.grid.cols-2{grid-template-columns:1.2fr .8fr}}
@@ -36,14 +37,26 @@
     button.danger{background:transparent;border-color:#3a2020;color:#fecaca}
     button:disabled{opacity:0.5;cursor:not-allowed}
     .muted{color:var(--muted)}
-    .right{margin-left:auto}
-    .center{text-align:center}
     .hidden{display:none}
 
     .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:400px;overflow-y:auto}
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
+    /* Sticky table headers for scrollable tables */
+    .table-scroll thead th{
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      z-index: 2;
+      box-shadow: 0 2px 0 0 #222b3a;
+    }
+
+    /* Clickable shift rows + note row styling */
+    tr.shift-row{ cursor: pointer; }
+    tr.shift-row:hover{ background:#101521; }
+    .note-row td{ background:#0c0f14; color:var(--muted); }
+
     .led{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;background:#475569}
     .led.green{background:var(--green)}
     .led.red{background:#ef4444}
@@ -71,22 +84,21 @@
 
     <!-- AUTH (sign-in only) -->
     <section id="authCard" class="card">
-      <h2>Sign in</h2>
-      <p class="muted">Use your staff email and password.</p>
-      <div class="grid" style="grid-template-columns:1fr;gap:12px">
+      <h2 style="margin-top:0">Sign in</h2>
+      <div class="grid">
         <div>
           <label>Email</label>
-          <input id="email" type="email" placeholder="you@ceylonians.au" autocomplete="email" />
+          <input id="email" type="email" placeholder="me@example.com" />
         </div>
         <div>
           <label>Password</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <input id="password" type="password" placeholder="••••••••" />
         </div>
       </div>
       <div class="row" style="margin-top:12px">
         <button id="btnSignIn" class="primary">Sign in</button>
+        <span id="authMsg" class="muted"></span>
       </div>
-      <p id="authMsg" class="muted"></p>
     </section>
 
     <!-- APP -->
@@ -142,7 +154,7 @@
 
   <script>
     const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDk0NDc1MTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
 
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -150,59 +162,46 @@
     const fmtDate = (d) => new Date(d).toLocaleDateString();
     const fmtTime = (d) => new Date(d).toLocaleTimeString();
 
-    const authCard = $("authCard");
-    const app = $("app");
-    const adminCard = $("adminCard");
-    const btnClockIn = $("btnClockIn");
-    const btnClockOut = $("btnClockOut");
-
-    function setBusy(msg) { $("authMsg").textContent = msg || ""; }
-    function setAuthUI(user, profile){
-      if (user) {
-        authCard.classList.add("hidden");
-        app.classList.remove("hidden");
-        $("who").textContent = profile?.full_name
-          ? `${profile.full_name} (${profile.is_admin ? "admin" : (profile.role||"staff")})`
-          : user.email;
-        $("btnSignOut").classList.remove("hidden");
-        adminCard.classList.toggle("hidden", !(profile && profile.is_admin));
-        loadShifts();
-        if (profile && profile.is_admin) loadAdmin();
-      } else {
-        authCard.classList.remove("hidden");
-        app.classList.add("hidden");
-        $("btnSignOut").classList.add("hidden");
-        $("who").textContent = "";
-      }
-    }
-
     async function getProfile(){
       const { data: { user } } = await supa.auth.getUser();
       if (!user) return { user: null, profile: null };
-      const { data: profile } = await supa
-        .from("profiles")
-        .select("id, full_name, role, is_admin")
-        .eq("id", user.id)
-        .single();
+
+      const { data: profile } = await supa.from("profiles").select("*").eq("id", user.id).maybeSingle();
       return { user, profile };
     }
 
+    function setAuthUI(user, profile){
+      const auth = $("authCard");
+      const app  = $("app");
+      const who  = $("who");
+      const signOut = $("btnSignOut");
+
+      if (user){
+        who.textContent = profile?.full_name || user.email || "Signed in";
+        auth.classList.add("hidden");
+        app.classList.remove("hidden");
+        signOut.classList.remove("hidden");
+        loadShifts();
+        loadAdmin();
+      } else {
+        who.textContent = "";
+        auth.classList.remove("hidden");
+        app.classList.add("hidden");
+        signOut.classList.add("hidden");
+      }
+    }
+
     $("btnSignIn").onclick = async () => {
-      setBusy("Signing in…");
-      const { error } = await supa.auth.signInWithPassword({
-        email: $("email").value.trim(),
-        password: $("password").value
-      });
-      if (error) { setBusy(error.message); return; }
-      const ctx = await getProfile();
-      setAuthUI(ctx.user, ctx.profile);
-      setBusy("");
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      $("authMsg").textContent = "";
+      const { error } = await supa.auth.signInWithPassword({ email, password });
+      if (error) $("authMsg").textContent = error.message;
     };
 
     $("btnSignOut").onclick = async () => {
       await supa.auth.signOut();
-      setAuthUI(null, null);
-      authCard.classList.remove("hidden");
+      const app = $("app");
       app.classList.add("hidden");
     };
 
@@ -224,6 +223,20 @@
       await loadShifts();
     }
 
+    function updateButtons(inShift){
+      btnClockIn.disabled = !!inShift;
+      btnClockOut.disabled = !inShift;
+    }
+
+    function escapeHtml(s){
+      return (s??"")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+    }
+
     function calculateHours(inTime, outTime){
       if (!inTime || !outTime) return "-";
       const diffMs = new Date(outTime) - new Date(inTime);
@@ -234,41 +247,47 @@
 
     async function loadShifts(){
       $("now").textContent = new Date().toLocaleString();
-      const { data } = await supa
+      const { data, error } = await supa
         .from("punches")
-        .select("created_at, action")
+        .select("created_at, action, note")
         .order("created_at", { ascending: true });
+
+      if (error) { console.error(error); return; }
 
       let shifts = [];
       let currentIn = null;
-      for (let p of data){
+
+      for (let p of (data || [])){
         if (p.action === "in"){
           currentIn = p.created_at;
         } else if (p.action === "out" && currentIn){
           shifts.push({
             date: fmtDate(currentIn),
-            in: fmtTime(currentIn),
-            out: fmtTime(p.created_at),
+            in:   fmtTime(currentIn),
+            out:  fmtTime(p.created_at),
             hours: calculateHours(currentIn, p.created_at),
-            status: "Pending"
+            status: "Pending",
+            note: p.note || ""
           });
           currentIn = null;
         }
       }
-      if (currentIn){
+      const inShift = !!currentIn;
+      if (inShift){
         shifts.push({
           date: fmtDate(currentIn),
-          in: fmtTime(currentIn),
-          out: "-",
+          in:   fmtTime(currentIn),
+          out:  "-",
           hours: "-",
-          status: "Pending"
+          status: "Pending",
+          note: ""
         });
       }
 
-      // live status pill (unchanged logic, minor enhancement)
+      // live status pill
       const statusTxt = $("statusTxt");
       const statusLed = $("statusLed");
-      if (currentIn){
+      if (inShift){
         statusTxt.textContent = "In shift";
         statusLed.classList.add("green");
         statusLed.classList.remove("red");
@@ -278,10 +297,45 @@
         statusLed.classList.remove("green");
       }
 
+      // NEW: set button states
+      updateButtons(inShift);
+
+      // Render: clickable row + hidden note row
       const body = $("shiftBody");
-      body.innerHTML = (shifts && shifts.length)
-        ? shifts.map(s => `<tr><td>${s.date}</td><td>${s.in}</td><td>${s.out}</td><td>${s.hours}</td><td>${s.status}</td></tr>`).join("")
-        : `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
+      if (!shifts.length){
+        body.innerHTML = `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
+      } else {
+        body.innerHTML = shifts.map((s,i)=>`
+          <tr class="shift-row" data-idx="${i}" tabindex="0" aria-expanded="false">
+            <td>${s.date}</td>
+            <td>${s.in}</td>
+            <td>${s.out}</td>
+            <td>${s.hours}</td>
+            <td>${s.status}</td>
+          </tr>
+          <tr class="note-row hidden" aria-hidden="true">
+            <td colspan="5"><strong>Note:</strong> ${s.note ? escapeHtml(s.note) : "<em>None</em>"}</td>
+          </tr>
+        `).join("");
+      }
+
+      // toggle details on click/keyboard
+      body.onclick = (e)=>{
+        const row = e.target.closest("tr.shift-row");
+        if (!row) return;
+        const details = row.nextElementSibling;
+        details.classList.toggle("hidden");
+        const expanded = !details.classList.contains("hidden");
+        row.setAttribute("aria-expanded", String(expanded));
+        details.setAttribute("aria-hidden", String(!expanded));
+      };
+      body.onkeydown = (e)=>{
+        if (e.key !== "Enter" && e.key !== " ") return;
+        const row = e.target.closest("tr.shift-row");
+        if (!row) return;
+        e.preventDefault();
+        row.click();
+      };
     }
 
     async function loadAdmin(){
