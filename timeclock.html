@@ -43,16 +43,10 @@
     table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
-    /* Sticky table headers for scrollable tables */
     .table-scroll thead th{
-      position: sticky;
-      top: 0;
-      background: var(--panel);
-      z-index: 2;
-      box-shadow: 0 2px 0 0 #222b3a;
+      position: sticky; top: 0; background: var(--panel); z-index: 2; box-shadow: 0 2px 0 0 #222b3a;
     }
 
-    /* Clickable shift rows + note row styling */
     tr.shift-row{ cursor: pointer; }
     tr.shift-row:hover{ background:#101521; }
     .note-row td{ background:#0c0f14; color:var(--muted); }
@@ -153,20 +147,22 @@
   </div>
 
   <script>
+    // ===== Supabase init =====
     const SUPABASE_URL = "https://yunrapnjbzyqqzomcqoc.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1bnJhcG5qYnp5cXF6b21jcW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY1MjkyMTUsImV4cCI6MjA3MjEwNTIxNX0.E_qqD6scsCohrTDOrSZ_TfaLSslXSEb4p5t70UpDT24";
-
- 
     const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // ===== Helpers & refs =====
     const $ = (id) => document.getElementById(id);
     const fmtDate = (d) => new Date(d).toLocaleDateString();
     const fmtTime = (d) => new Date(d).toLocaleTimeString();
 
+    const btnClockIn  = $("btnClockIn");
+    const btnClockOut = $("btnClockOut");
+
     async function getProfile(){
       const { data: { user } } = await supa.auth.getUser();
       if (!user) return { user: null, profile: null };
-
       const { data: profile } = await supa.from("profiles").select("*").eq("id", user.id).maybeSingle();
       return { user, profile };
     }
@@ -178,7 +174,7 @@
       const signOut = $("btnSignOut");
 
       if (user){
-        who.textContent = profile?.full_name || user.email || "Signed in";
+        who.textContent = (profile && profile.full_name) || user.email || "Signed in";
         auth.classList.add("hidden");
         app.classList.remove("hidden");
         signOut.classList.remove("hidden");
@@ -192,48 +188,63 @@
       }
     }
 
-    $("btnSignIn").onclick = async () => {
-  const email = $("email").value.trim();
-  const password = $("password").value;
-  const msg = $("authMsg");
-  msg.textContent = "";
-
-  try {
-    const { data, error } = await supa.auth.signInWithPassword({ email, password });
-    if (error) { msg.textContent = error.message; return; }
-
-    // Don’t wait for onAuthStateChange—show the app immediately
-    const { data: { user } } = await supa.auth.getUser();
-    const { data: profile } = await supa
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    setAuthUI(user, profile);
-  } catch (e) {
-    console.error("Sign-in exception:", e);
-    msg.textContent = "Sign-in failed. See console for details.";
-  }
-};
-
-    $("btnSignOut").onclick = async () => {
-     
-     
-	  try {
-	   const app = $("app");
-      await supa.auth.signOut();
-	  
-      app.classList.add("hidden");
-    } catch (e) {
-      console.warn("Sign-out error:", e);
-    } finally {
-      // Instantly show Sign in and hide the logged-in app UI
-		showSignInUI();   
-		location.reload(); // returns to initial HTML state (auth shown, app hidden)	  
+    function showSignInUI(){
+      $("authCard").classList.remove("hidden");
+      $("app").classList.add("hidden");
+      $("adminCard").classList.add("hidden");
+      $("btnSignOut").classList.add("hidden");
+      $("who").textContent = "";
+      if (window.updateButtons) updateButtons(false);
+      $("email")?.focus();
     }
+
+    // ===== Auth: Sign in / out =====
+    $("btnSignIn").onclick = async () => {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const msg = $("authMsg");
+      msg.textContent = "";
+
+      try {
+        const { data, error } = await supa.auth.signInWithPassword({ email, password });
+        if (error) { msg.textContent = error.message; return; }
+
+        // Immediately flip UI without waiting for listener
+        const { data: { user } } = await supa.auth.getUser();
+        if (!user) { msg.textContent = "Sign-in failed: no user session."; return; }
+
+        const { data: profile } = await supa
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        setAuthUI(user, profile);
+      } catch (e) {
+        console.error("Sign-in exception:", e);
+        msg.textContent = "Sign-in failed. See console for details.";
+      }
     };
 
+    ["email","password"].forEach(id =>
+      $(id).addEventListener("keydown", e => {
+        if (e.key === "Enter") $("btnSignIn").click();
+      })
+    );
+
+    $("btnSignOut").onclick = async () => {
+      try {
+        await supa.auth.signOut();
+      } catch (e) {
+        console.warn("Sign-out error:", e);
+      } finally {
+        // Flip back to sign-in immediately (no reload to avoid auth races)
+        setAuthUI(null, null);
+        showSignInUI();
+      }
+    };
+
+    // ===== App actions =====
     btnClockIn.onclick  = async () => addPunch("in");
     btnClockOut.onclick = async () => {
       const raw = prompt("Add a note for this shift (optional):", "");
@@ -251,19 +262,6 @@
       if (error) { alert(error.message); return; }
       await loadShifts();
     }
-	
-	function showSignInUI(){
-  // Hard flip to the sign-in screen
-  $("authCard").classList.remove("hidden");
-  $("app").classList.add("hidden");
-  $("adminCard").classList.add("hidden");
-  $("btnSignOut").classList.add("hidden");
-  $("who").textContent = "";
-  // reset buttons to safe defaults
-  if (window.updateButtons) updateButtons(false);
-  // optional UX: clear & focus
-  $("email")?.focus();
-}
 
     function updateButtons(inShift){
       btnClockIn.disabled = !!inShift;
@@ -339,10 +337,10 @@
         statusLed.classList.remove("green");
       }
 
-      // NEW: set button states
+      // set button states
       updateButtons(inShift);
 
-      // Render: clickable row + hidden note row
+      // render rows + note toggles
       const body = $("shiftBody");
       if (!shifts.length){
         body.innerHTML = `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
@@ -361,7 +359,6 @@
         `).join("");
       }
 
-      // toggle details on click/keyboard
       body.onclick = (e)=>{
         const row = e.target.closest("tr.shift-row");
         if (!row) return;
@@ -414,9 +411,12 @@
       URL.revokeObjectURL(url);
     }
 
+    // ===== Boot =====
     (async () => {
       const ctx = await getProfile();
       setAuthUI(ctx.user, ctx.profile);
+
+      // Listener kept as a safety net
       supa.auth.onAuthStateChange(async () => {
         const ctx = await getProfile();
         setAuthUI(ctx.user, ctx.profile);
