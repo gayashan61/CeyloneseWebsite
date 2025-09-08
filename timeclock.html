@@ -26,8 +26,8 @@
     header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:4px 0 8px}
     main.center{flex:1;display:grid;place-items:center;padding:clamp(8px,2vw,20px)}
 
-    /* Card & controls */
-    .card{width:100%;max-width:900px;margin-inline:auto;background:var(--panel);border:1px solid var(--border);
+    /* Cards & controls */
+    .card{width:100%;max-width:720px;margin-inline:auto;background:var(--panel);border:1px solid var(--border);
       border-radius:16px;padding:18px;box-shadow:0 10px 28px rgba(0,0,0,.25)}
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .pill{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:999px;border:1px solid var(--border);color:var(--muted);max-width:100%}
@@ -44,14 +44,17 @@
     .muted{color:var(--muted)}
     .hidden{display:none}
 
-    /* Table */
-    .table-wrap{margin-top:10px}
-    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:420px;overflow-y:auto;border-radius:12px}
-    table{width:100%;border-collapse:collapse;min-width:640px}
+    /* Table area */
+    .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;max-height:420px;overflow-y:auto}
+    table{width:100%;border-collapse:collapse;min-width:560px}
     th,td{padding:10px;border-bottom:1px solid #222b3a;vertical-align:top;word-break:break-word}
     th{text-align:left;color:#cbd5e1;font-weight:700}
     .table-scroll thead th{
-      position: sticky; top: 0; background: var(--panel); z-index: 2; box-shadow: 0 2px 0 0 #222b3a;
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      z-index: 2;
+      box-shadow: 0 2px 0 0 #222b3a;
     }
 
     /* Clickable shift rows + note row styling */
@@ -64,16 +67,27 @@
     .led.green{background:var(--green)}
     .led.red{background:#ef4444}
 
-    /* Mobile friendliness: keep it a table; just make controls full-width */
+    /* Mobile friendliness */
     @media(max-width:700px){
       header strong{font-size:16px}
       .row > *{flex:1 1 100%}
       button, input, select{width:100%}
       .pill{font-size:12px}
+      /* Stack table rows into cards on small screens */
+      table, thead, tbody, th, td, tr { display:block; }
+      thead tr{ position:absolute; top:-9999px; left:-9999px; }
+      tr.shift-row{ border:1px solid var(--border); border-radius:12px; margin:0 0 10px; padding:8px; }
+      tr.shift-row td{ border:none; border-bottom:1px solid #222b3a; padding:10px 12px 10px 44%; position:relative; }
+      tr.shift-row td:last-child{ border-bottom:none; }
+      tr.shift-row td::before{
+        content:attr(data-label);
+        position:absolute; left:12px; top:10px; width:40%; color:var(--muted); font-weight:600;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      }
+      tr.note-row td{ padding:12px; }
+      .table-scroll{max-height:none}
+      table{min-width:0}
     }
-
-    .hint{display:none;font-size:12px;color:var(--muted);margin-top:6px}
-    @media(max-width:700px){ .hint{display:block} }
   </style>
 </head>
 <body>
@@ -129,22 +143,19 @@
           </div>
 
           <h3 style="margin-top:16px">Shift Records</h3>
-          <div class="table-wrap">
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Clock In</th>
-                    <th>Clock Out</th>
-                    <th>Hours</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="shiftBody"><tr><td colspan="5" class="muted">No shifts yet.</td></tr></tbody>
-              </table>
-            </div>
-            <div class="hint">Tip: swipe/scroll horizontally to see all columns →</div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Clock In</th>
+                  <th>Clock Out</th>
+                  <th>Hours</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="shiftBody"><tr><td colspan="5" class="muted">No shifts yet.</td></tr></tbody>
+            </table>
           </div>
         </section>
       </div>
@@ -292,9 +303,6 @@
     };
 
     // ===== App actions (staff only) =====
-    const btnClockIn  = $("btnClockIn");
-    const btnClockOut = $("btnClockOut");
-
     btnClockIn.onclick  = async () => addPunch("in");
     btnClockOut.onclick = async () => {
       const raw = prompt("Add a note for this shift (optional):", "");
@@ -390,18 +398,18 @@
       // set button states
       updateButtons(inShift);
 
-      // render rows + note toggles (true table on all sizes)
+      // render rows + note toggles (add data-labels for mobile cards)
       const body = $("shiftBody");
       if (!shifts.length){
         body.innerHTML = `<tr><td colspan="5" class="muted">No shifts yet.</td></tr>`;
       } else {
         body.innerHTML = shifts.map((s,i)=>`
           <tr class="shift-row" data-idx="${i}" tabindex="0" aria-expanded="false">
-            <td>${s.date}</td>
-            <td>${s.in}</td>
-            <td>${s.out}</td>
-            <td>${s.hours}</td>
-            <td>${s.status}</td>
+            <td data-label="Date">${s.date}</td>
+            <td data-label="Clock In">${s.in}</td>
+            <td data-label="Clock Out">${s.out}</td>
+            <td data-label="Hours">${s.hours}</td>
+            <td data-label="Status">${s.status}</td>
           </tr>
           <tr class="note-row hidden" aria-hidden="true">
             <td colspan="5"><strong>Note:</strong> ${s.note ? escapeHtml(s.note) : "<em>None</em>"}</td>
