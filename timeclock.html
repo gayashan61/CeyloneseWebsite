@@ -108,6 +108,9 @@
       border:1px solid var(--border); border-radius:12px; background:#0c0f14;
     }
 
+    /* 👇 ensure hidden wins for the modal */
+    .modal-backdrop.hidden{ display:none; }
+
     /* Mobile tweaks */
     @media(max-width:700px){
       header strong{font-size:16px}
@@ -354,9 +357,9 @@
     btnClockIn.onclick  = async () => addPunch("in");
 
     // Open Clock Out modal instead of prompt
-    const outModal    = $("outModal");
-    const outClose    = $("outClose");
-    const outNote     = $("outNote");
+    const outModal      = $("outModal");
+    const outClose      = $("outClose");
+    const outNote       = $("outNote");
     const btnOutCancel  = $("btnOutCancel");
     const btnOutConfirm = $("btnOutConfirm");
 
@@ -365,13 +368,12 @@
       outNote.value = "";
       document.getElementById("shopClayton").checked = false;
       document.getElementById("shopBerwic").checked  = false;
-      // focus first control
       document.getElementById("shopClayton").focus();
     }
     function closeOutModal(){ outModal.classList.add("hidden"); }
 
-    btnClockOut.onclick = () => openOutModal();
-    outClose.onclick = () => closeOutModal();
+    btnClockOut.onclick  = () => openOutModal();
+    outClose.onclick     = () => closeOutModal();
     btnOutCancel.onclick = () => closeOutModal();
 
     // Allow closing by clicking the backdrop
@@ -389,7 +391,7 @@
         alert("Please select a shop (Clayton or Berwic).");
         return;
       }
-      const shop = selected.value; // "Clayton" | "Berwic"
+      const shop = selected.value;
       const note = (outNote.value || "").trim() || null;
       await addPunch("out", note, shop);
       closeOutModal();
