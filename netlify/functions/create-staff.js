@@ -35,9 +35,7 @@ export const handler = async (event) => {
   const {
     email,
     full_name,
-    role = 'staff',
-    is_admin = false,
-    // send_invite is ignored now (we always auto-confirm, no email flow)
+    // ignore incoming role / is_admin (we force staff)
     password: providedPassword
   } = body;
 
@@ -76,7 +74,11 @@ export const handler = async (event) => {
   const callerIsAdmin = prof?.is_admin === true || String(prof?.role || '').toLowerCase() === 'admin';
   if (!callerIsAdmin) return json(403, { error: 'Forbidden: admin only' });
 
-  // Always create with email_confirm: true (no emails at all)
+  // Force staff role server-side
+  const role = 'staff';
+  const is_admin = false;
+
+  // Use provided password if valid; otherwise auto-generate
   const password = (typeof providedPassword === 'string' && providedPassword.trim().length >= 8)
     ? providedPassword.trim()
     : generatePassword(14);
@@ -95,7 +97,7 @@ export const handler = async (event) => {
     return json(400, { error: e?.message || 'Failed to create auth user' });
   }
 
-  // Upsert profiles row
+  // Upsert profiles row (forced staff)
   try {
     const { error: upErr } = await admin
       .from('profiles')
@@ -114,6 +116,6 @@ export const handler = async (event) => {
     role,
     is_admin,
     invited: false,
-    password // ← temporary password for first login
+    password
   });
 };
