@@ -92,24 +92,6 @@
             </label>
           </div>
         </div>
-
-        <!-- NEW: Password / Confirm + Show toggle -->
-        <div class="row" style="margin-top:10px">
-          <div class="field" style="flex:1 1 220px; min-width:220px">
-            <label>Password</label>
-            <input id="cs_password" type="password" placeholder="Min 8 characters (leave blank to auto-generate)" />
-          </div>
-          <div class="field" style="flex:1 1 220px; min-width:220px">
-            <label>Confirm Password</label>
-            <input id="cs_password2" type="password" placeholder="Repeat password" />
-          </div>
-          <div class="field" style="min-width:140px; align-self:flex-end">
-            <label class="muted" style="display:flex;gap:8px;align-items:center">
-              <input id="cs_showpass" type="checkbox" /> Show
-            </label>
-          </div>
-        </div>
-
         <div class="row" style="margin-top:8px">
           <div class="right" style="display:flex;gap:10px;align-items:center">
             <button id="cs_create" class="primary">Create Staff</button>
@@ -218,37 +200,37 @@
     }
 
     function renderShifts(){
-      const body = $("adminBody");
-      if (!CURRENT_SHIFTS.length){
-        body.innerHTML = `<tr><td colspan="7" class="muted">No shifts in this range.</td></tr>`;
-        return;
-      }
-      body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
-        <tr data-idx="${i}">
-          <td>${new Date(s.in_time).toLocaleDateString()} <span class="muted">(${new Date(s.in_time).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
-          <td>${(s.full_name || s.email || s.user_id)}</td>
-          <td>${new Date(s.in_time).toLocaleTimeString()}</td>
-          <td>${new Date(s.out_time).toLocaleTimeString()}</td>
-          <td>${Number(s.hours).toFixed(2)}</td>
-          <td><span class="status ${s.status}">${(s.status||'pending').replace(/^./,c=>c.toUpperCase())}</span></td>
-          <td>
-            <div style="display:flex;gap:8px">
-              <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
-              <button class="reject"  data-action="reject"  ${s.status==='rejected'?'disabled':''}>Reject</button>
-            </div>
-          </td>
-        </tr>
-        <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + String(s.note).replace(/</g,'&lt;').replace(/>/g,'&gt;')) : ''}</td></tr>
-      `).join("");
+  const body = $("adminBody");
+  if (!CURRENT_SHIFTS.length){
+    body.innerHTML = `<tr><td colspan="7" class="muted">No shifts in this range.</td></tr>`;
+    return;
+  }
+  body.innerHTML = CURRENT_SHIFTS.map((s, i) => `
+    <tr data-idx="${i}">
+      <td>${new Date(s.in_time).toLocaleDateString()} <span class="muted">(${new Date(s.in_time).toLocaleDateString(undefined,{weekday:'short'})})</span></td>
+      <td>${(s.full_name || s.email || s.user_id)}</td>
+      <td>${new Date(s.in_time).toLocaleTimeString()}</td>
+      <td>${new Date(s.out_time).toLocaleTimeString()}</td>
+      <td>${Number(s.hours).toFixed(2)}</td>
+      <td><span class="status ${s.status}">${(s.status||'pending').replace(/^./,c=>c.toUpperCase())}</span></td>
+      <td>
+        <div style="display:flex;gap:8px">
+          <button class="approve" data-action="approve" ${s.status==='approved'?'disabled':''}>Approve</button>
+          <button class="reject"  data-action="reject"  ${s.status==='rejected'?'disabled':''}>Reject</button>
+        </div>
+      </td>
+    </tr>
+    <tr><td colspan="7" class="muted">${s.note ? ('Note: ' + String(s.note).replace(/</g,'&lt;').replace(/>/g,'&gt;')) : ''}</td></tr>
+  `).join("");
 
-      body.onclick = async (e)=>{
-        const btn = e.target.closest("button[data-action]"); if (!btn) return;
-        const row = btn.closest("tr[data-idx]"); if (!row) return;
-        const idx = +row.dataset.idx; const shift = CURRENT_SHIFTS[idx];
-        const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
-        await setApproval(shift, status);
-      };
-    }
+  body.onclick = async (e)=>{
+    const btn = e.target.closest("button[data-action]"); if (!btn) return;
+    const row = btn.closest("tr[data-idx]"); if (!row) return;
+    const idx = +row.dataset.idx; const shift = CURRENT_SHIFTS[idx];
+    const status = btn.dataset.action === 'approve' ? 'approved' : 'rejected';
+    await setApproval(shift, status);
+  };
+}
 
     function exportCSV(){
       if (!CURRENT_SHIFTS.length){ alert("Nothing to export"); return; }
@@ -270,66 +252,33 @@
       URL.revokeObjectURL(url);
     }
 
-    // ===== Create Staff (now supports manual password, but still works if left blank) =====
+    // ===== Create Staff (uses your Netlify function, auto-confirm flow) =====
     (function wireCreateStaff(){
       const btn = $("cs_create"), msg = $("cs_msg");
-      const pw = $("cs_password"), pw2 = $("cs_password2"), show = $("cs_showpass");
-
-      // Show/hide password
-      if (show) {
-        show.onchange = () => {
-          const t = show.checked ? "text" : "password";
-          pw.type = t; pw2.type = t;
-        };
-      }
-
       btn.onclick = async () => {
         const full_name = $("cs_fullname").value.trim();
         const email = $("cs_email").value.trim();
         const is_admin = $("cs_is_admin").checked;
-        const password = (pw?.value || "").trim();
-        const confirm  = (pw2?.value || "").trim();
-
         msg.textContent = "";
         if (!full_name || !email){ msg.textContent = "Full name and email are required."; return; }
-
-        // If a password is provided, validate it; if left blank, backend will auto-generate as before
-        if (password.length > 0) {
-          if (password.length < 8){ msg.textContent = "Password must be at least 8 characters."; return; }
-          if (password !== confirm){ msg.textContent = "Passwords do not match."; return; }
-        }
-
         const { data: { session } } = await supa.auth.getSession();
         const accessToken = session?.access_token;
         if (!accessToken){ msg.textContent = "Not signed in."; return; }
 
         btn.disabled = true; msg.textContent = "Creating…";
         try{
-          const payload = { email, full_name, role: is_admin?'admin':'staff', is_admin };
-          if (password.length >= 8) payload.password = password; // only send if provided
-
           const res = await fetch('/.netlify/functions/create-staff', {
             method: 'POST',
             headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${accessToken}` },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ email, full_name, role: is_admin?'admin':'staff', is_admin })
           });
-
           const j = await res.json().catch(()=> ({}));
           if (!res.ok){ msg.textContent = j.error || "Failed to create staff."; return; }
-
-          // j.password is either the typed one (echoed back) or auto-generated by backend
           const creds = `Email: ${email}\nTemp password: ${j.password}`;
           try { await navigator.clipboard.writeText(creds); } catch(_){}
           msg.textContent = "Staff created ✔  (temp password copied)";
           alert(`Staff created.\n\n${creds}\n\nShare securely with the staff member.`);
-
-          // Clear form
-          $("cs_fullname").value = "";
-          $("cs_email").value = "";
-          $("cs_is_admin").checked = false;
-          if (pw) pw.value = "";
-          if (pw2) pw2.value = "";
-          if (show) { show.checked = false; pw.type="password"; pw2.type="password"; }
+          $("cs_fullname").value = ""; $("cs_email").value = ""; $("cs_is_admin").checked = false;
         }catch(e){
           console.warn(e); msg.textContent = "Network error.";
         }finally{
